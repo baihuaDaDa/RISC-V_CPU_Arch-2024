@@ -20,9 +20,9 @@ module rf (
     localparam REG_NUM_WIDTH = `REG_NUM_WIDTH;
     localparam REG_NUM = `REG_NUM;
 
-    reg [               31:0] regs         [REG_NUM-1:0];
-    reg [`ROB_SIZE_WIDTH-1:0] regDependency[REG_NUM-1:0];
-    integer i;
+    reg     [               31:0] regs         [REG_NUM-1:0];
+    reg     [`ROB_SIZE_WIDTH-1:0] regDependency[REG_NUM-1:0];
+    integer                       i;
 
     always @(posedge clk_in) begin
         if (rst_in) begin

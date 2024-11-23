@@ -17,3 +17,6 @@
 `define LB_SIZE_WIDTH 4
 `define SB_SIZE 15 // LoopQueue 需要预留一个空位置
 `define SB_SIZE_WIDTH 4
+
+`define PREDICTOR_SIZE 128
+`define PREDICTOR_SIZE_WIDTH 7

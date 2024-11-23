@@ -85,8 +85,11 @@ module rob (
     reg [ROB_STATE_NUM_WIDTH-1:0] buffer_rob_state [ROB_SIZE:0];
     reg                           buffer_is_jump   [ROB_SIZE:0];
 
-    reg [     ROB_SIZE_WIDTH-1:0] rear_next;
-    reg [     ROB_SIZE_WIDTH-1:0] front;
+    wire [     ROB_SIZE_WIDTH-1:0] rear_next;
+    wire [     ROB_SIZE_WIDTH-1:0] front;
+
+    assign rear_next = (buffer_rear + 1) & ROB_SIZE;
+    assign front = (buffer_head + 1) & ROB_SIZE;
 
     assign buffer_full = (buffer_size + dec_valid == ROB_SIZE);
 
@@ -108,111 +111,120 @@ module rob (
             rob2pred_ready <= 0;
             need_flush_out <= 0;
         end else begin
-            if (dec_valid) begin
-                rear_next = (buffer_rear + 1) & ROB_SIZE;
-                buffer_rear <= rear_next;
-                buffer_size <= buffer_size + 1;
-                buffer_rob_type[rear_next] <= dec_rob_type;
-                buffer_dest[rear_next] <= dec_dest;
-                buffer_value[rear_next] <= dec_value;
-                buffer_instr_addr[rear_next] <= dec_instr_addr;
-                buffer_jump_addr[rear_next] <= dec_jump_addr;
-                buffer_rob_state[rear_next] <= dec_rob_state;
-                buffer_is_jump[rear_next] <= dec_is_jump;
-                buffer_rear <= rear_next;
-            end
-            if (alu_valid) begin
-                buffer_value[alu_dependency] <= alu_value;
-                buffer_rob_state[alu_dependency] <= ROB_STATE_WRITE_RESULT;
-            end
-            if (mem_valid) begin
-                buffer_value[mem_dependency] <= mem_value;
-                buffer_rob_state[mem_dependency] <= ROB_STATE_WRITE_RESULT;
-            end
-            if (lsb_valid) begin
-                buffer_dest[lsb_dependency] <= lsb_dest;
-                buffer_value[lsb_dependency] <= lsb_value;
-                buffer_rob_state[lsb_dependency] <= ROB_STATE_WRITE_RESULT;
-            end
-            front = (buffer_head + 1) & ROB_SIZE;
-            if (buffer_rob_state[front] == ROB_STATE_WRITE_RESULT) begin
-                case (buffer_rob_type[front])
-                    ROB_TYPE_REG: begin
-                        rob2rf_rd <= buffer_dest[front];
-                        rob2rf_value <= buffer_value[front];
-                        rob2rf_rob_id <= front;
-                        rob2rf_ready <= 1;
-                        rob2mem_ready <= 0;
-                        rob2lsb_pop_sb <= 0;
-                        rob2pred_ready <= 0;
-                        need_flush_out <= 0;
-                    end
-                    ROB_TYPE_JALR: begin
-                        rob2rf_rd <= buffer_dest[front];
-                        rob2rf_value <= buffer_instr_addr[front] + 4;
-                        rob2rf_rob_id <= front;
-                        rob2rf_ready <= 1;
-                        rob2mem_ready <= 0;
-                        rob2lsb_pop_sb <= 0;
-                        rob2pred_ready <= 0;
-                        if (buffer_jump_addr[front] != buffer_value[front]) begin
-                            rob2if_jump_addr <= buffer_value[front];
-                            need_flush_out   <= 1;
-                        end else begin
-                            need_flush_out <= 0;
-                        end
-                    end
-                    ROB_TYPE_STORE_BYTE: begin
-                        if (!mem_busy) begin
-                            rob2mem_store_type <= STORE_BYTE;
-                            rob2mem_addr <= buffer_dest[front];
-                            rob2mem_value <= buffer_value[front];
-                            rob2mem_ready <= 1;
-                            rob2lsb_pop_sb <= 1;
-                            rob2rf_ready <= 0;
+            if (need_flush_out) begin
+                buffer_head <= 0;
+                buffer_rear <= 0;
+                buffer_size <= 0;
+                rob2rf_ready <= 0;
+                rob2mem_ready <= 0;
+                rob2lsb_pop_sb <= 0;
+                rob2pred_ready <= 0;
+                need_flush_out <= 0;
+            end else begin
+                if (dec_valid) begin
+                    buffer_rear <= rear_next;
+                    buffer_size <= buffer_size + 1;
+                    buffer_rob_type[rear_next] <= dec_rob_type;
+                    buffer_dest[rear_next] <= dec_dest;
+                    buffer_value[rear_next] <= dec_value;
+                    buffer_instr_addr[rear_next] <= dec_instr_addr;
+                    buffer_jump_addr[rear_next] <= dec_jump_addr;
+                    buffer_rob_state[rear_next] <= dec_rob_state;
+                    buffer_is_jump[rear_next] <= dec_is_jump;
+                    buffer_rear <= rear_next;
+                end
+                if (alu_valid) begin
+                    buffer_value[alu_dependency] <= alu_value;
+                    buffer_rob_state[alu_dependency] <= ROB_STATE_WRITE_RESULT;
+                end
+                if (mem_valid) begin
+                    buffer_value[mem_dependency] <= mem_value;
+                    buffer_rob_state[mem_dependency] <= ROB_STATE_WRITE_RESULT;
+                end
+                if (lsb_valid) begin
+                    buffer_dest[lsb_dependency] <= lsb_dest;
+                    buffer_value[lsb_dependency] <= lsb_value;
+                    buffer_rob_state[lsb_dependency] <= ROB_STATE_WRITE_RESULT;
+                end
+                if (buffer_rob_state[front] == ROB_STATE_WRITE_RESULT) begin
+                    case (buffer_rob_type[front])
+                        ROB_TYPE_REG: begin
+                            rob2rf_rd <= buffer_dest[front];
+                            rob2rf_value <= buffer_value[front];
+                            rob2rf_rob_id <= front;
+                            rob2rf_ready <= 1;
+                            rob2mem_ready <= 0;
+                            rob2lsb_pop_sb <= 0;
                             rob2pred_ready <= 0;
                             need_flush_out <= 0;
                         end
-                    end
-                    ROB_TYPE_STORE_HALF: begin
-                        if (!mem_busy) begin
-                            rob2mem_store_type <= STORE_HALF;
-                            rob2mem_addr <= buffer_dest[front];
-                            rob2mem_value <= buffer_value[front];
-                            rob2mem_ready <= 1;
-                            rob2lsb_pop_sb <= 1;
-                            rob2rf_ready <= 0;
+                        ROB_TYPE_JALR: begin
+                            rob2rf_rd <= buffer_dest[front];
+                            rob2rf_value <= buffer_instr_addr[front] + 4;
+                            rob2rf_rob_id <= front;
+                            rob2rf_ready <= 1;
+                            rob2mem_ready <= 0;
+                            rob2lsb_pop_sb <= 0;
                             rob2pred_ready <= 0;
-                            need_flush_out <= 0;
+                            if (buffer_jump_addr[front] != buffer_value[front]) begin
+                                rob2if_jump_addr <= buffer_value[front];
+                                need_flush_out   <= 1;
+                            end else begin
+                                need_flush_out <= 0;
+                            end
                         end
-                    end
-                    ROB_TYPE_STORE_WORD: begin
-                        if (!mem_busy) begin
-                            rob2mem_store_type <= STORE_WORD;
-                            rob2mem_addr <= buffer_dest[front];
-                            rob2mem_value <= buffer_value[front];
-                            rob2mem_ready <= 1;
-                            rob2lsb_pop_sb <= 1;
+                        ROB_TYPE_STORE_BYTE: begin
+                            if (!mem_busy) begin
+                                rob2mem_store_type <= STORE_BYTE;
+                                rob2mem_addr <= buffer_dest[front];
+                                rob2mem_value <= buffer_value[front];
+                                rob2mem_ready <= 1;
+                                rob2lsb_pop_sb <= 1;
+                                rob2rf_ready <= 0;
+                                rob2pred_ready <= 0;
+                                need_flush_out <= 0;
+                            end
+                        end
+                        ROB_TYPE_STORE_HALF: begin
+                            if (!mem_busy) begin
+                                rob2mem_store_type <= STORE_HALF;
+                                rob2mem_addr <= buffer_dest[front];
+                                rob2mem_value <= buffer_value[front];
+                                rob2mem_ready <= 1;
+                                rob2lsb_pop_sb <= 1;
+                                rob2rf_ready <= 0;
+                                rob2pred_ready <= 0;
+                                need_flush_out <= 0;
+                            end
+                        end
+                        ROB_TYPE_STORE_WORD: begin
+                            if (!mem_busy) begin
+                                rob2mem_store_type <= STORE_WORD;
+                                rob2mem_addr <= buffer_dest[front];
+                                rob2mem_value <= buffer_value[front];
+                                rob2mem_ready <= 1;
+                                rob2lsb_pop_sb <= 1;
+                                rob2rf_ready <= 0;
+                                rob2pred_ready <= 0;
+                                need_flush_out <= 0;
+                            end
+                        end
+                        ROB_TYPE_BRANCH: begin
+                            rob2pred_instr_addr <= buffer_instr_addr[front];
+                            rob2pred_is_jump <= (buffer_value[front] == 1);
+                            rob2pred_ready <= 1;
                             rob2rf_ready <= 0;
-                            rob2pred_ready <= 0;
-                            need_flush_out <= 0;
+                            rob2mem_ready <= 0;
+                            rob2lsb_pop_sb <= 0;
+                            if (buffer_value[front] != buffer_is_jump[front]) begin
+                                rob2if_jump_addr <= (buffer_value[front] == 1) ? buffer_jump_addr[front] : buffer_instr_addr[front] + 4;
+                                need_flush_out <= 1;
+                            end else begin
+                                need_flush_out <= 0;
+                            end
                         end
-                    end
-                    ROB_TYPE_BRANCH: begin
-                        rob2pred_instr_addr <= buffer_instr_addr[front];
-                        rob2pred_is_jump <= (buffer_value[front] == 1);
-                        rob2pred_ready <= 1;
-                        rob2rf_ready <= 0;
-                        rob2mem_ready <= 0;
-                        rob2lsb_pop_sb <= 0;
-                        if (buffer_value[front] != buffer_is_jump[front]) begin
-                            rob2if_jump_addr <= (buffer_value[front] == 1) ? buffer_jump_addr[front] : buffer_instr_addr[front] + 4;
-                            need_flush_out <= 1;
-                        end else begin
-                            need_flush_out <= 0;
-                        end
-                    end
-                endcase
+                    endcase
+                end
             end
         end
     end

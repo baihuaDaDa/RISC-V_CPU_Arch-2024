@@ -5,7 +5,7 @@ module rf (
     input rst_in,
     input rdy_in,
 
-    input is_flush_in,
+    input need_flush_in,
 
     input                       rob_valid,
     input [  REG_NUM_WIDTH-1:0] rob_rd,
@@ -30,7 +30,7 @@ module rf (
         end else if (!rdy_in) begin
             /* do nothing */
         end else begin
-            if (is_flush_in) begin
+            if (need_flush_in) begin
                 flush();
             end else begin
                 if (rob_valid && rob_rd) begin

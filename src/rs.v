@@ -6,6 +6,8 @@ module rs (
     input rst_in,
     input rdy_in,
 
+    input need_flush_in,
+
     input                       alu_valid,
     input [               31:0] alu_value,
     input [`ROB_SIZE_WIDTH-1:0] alu_dependency,
@@ -57,34 +59,44 @@ module rs (
                 station_busy[i] <= 0;
             end
             station_cnt <= 0;
+            ready <= 0;
         end else if (!rdy_in) begin
             /* do nothing */
+            ready <= 0;
         end else begin
-            if (dec_valid) begin
-                add_entry(calc_op_L1_in, calc_op_L2_in, value1_in, value2_in, query1_in, query2_in,
-                          new_rob_id_in);
-            end
-            if (alu_valid) begin
-                update_dependency(alu_value, alu_dependency);
-            end
-            if (mem_valid) begin
-                update_dependency(mem_value, mem_dependency);
-            end
-            break_flag = 0;
-            for (i = 0; i < RS_SIZE && !break_flag; i = i + 1) begin
-                if (station_busy[i] == 1) begin
-                    if (station_q1[i] == -1 && station_q2[i] == -1) begin
-                        station_busy[i] <= 0;
-                        rs2alu_op_L1 <= station_calc_op_L1[i];
-                        rs2alu_op_L2 <= station_calc_op_L2[i];
-                        rs2alu_opr1 <= station_v1[i];
-                        rs2alu_opr2 <= station_v2[i];
-                        rs2alu_rob_id <= station_rob_id[i];
-                        break_flag = 1;  // break
+            if (need_flush_in) begin
+                for (i = 0; i < RS_SIZE; i = i + 1) begin
+                    station_busy[i] <= 0;
+                end
+                station_cnt <= 0;
+                ready <= 0;
+            end else begin
+                if (dec_valid) begin
+                    add_entry(calc_op_L1_in, calc_op_L2_in, value1_in, value2_in, query1_in,
+                              query2_in, new_rob_id_in);
+                end
+                if (alu_valid) begin
+                    update_dependency(alu_value, alu_dependency);
+                end
+                if (mem_valid) begin
+                    update_dependency(mem_value, mem_dependency);
+                end
+                break_flag = 0;
+                for (i = 0; i < RS_SIZE && !break_flag; i = i + 1) begin
+                    if (station_busy[i] == 1) begin
+                        if (station_q1[i] == -1 && station_q2[i] == -1) begin
+                            station_busy[i] <= 0;
+                            rs2alu_op_L1 <= station_calc_op_L1[i];
+                            rs2alu_op_L2 <= station_calc_op_L2[i];
+                            rs2alu_opr1 <= station_v1[i];
+                            rs2alu_opr2 <= station_v2[i];
+                            rs2alu_rob_id <= station_rob_id[i];
+                            break_flag = 1;  // break
+                        end
                     end
                 end
+                ready <= break_flag;
             end
-            ready <= break_flag;
         end
     end
 

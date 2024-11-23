@@ -1,6 +1,8 @@
 `include "src/const_param.v"
 
 module ALU (
+    input need_flush_in,
+
     input                            valid,
     input      [               31:0] opr1_in,
     input      [               31:0] opr2_in,
@@ -31,13 +33,12 @@ module ALU (
 
     always @(posedge clk_in) begin
         if (rst_in) begin
-            value_out <= 32'b0;
-            rob_id_out <= 0;
             ready <= 0;
         end else if (!rdy_in) begin
             /* do nothing */
+            ready <= 0;
         end else begin
-            if (valid) begin
+            if (!need_flush_in && valid) begin
                 case (alu_op_L1_in)
                     ALU_ADD_SUB:
                     case (alu_op_L2_in)

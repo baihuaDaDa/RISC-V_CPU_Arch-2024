@@ -1,10 +1,7 @@
 // RISCV32 CPU top module
 // port modification allowed for debugging purposes
 
-`define RS_WIDTH 5
-`define RS_SIZE 32
-`define ROB_WIDTH 5
-`define ROB_SIZE 32
+`include "src/const_param.v"
 
 module cpu(
   input  wire                 clk_in,			// system clock signal

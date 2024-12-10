@@ -6,7 +6,7 @@ module rob (
     input rst_in,
     input rdy_in,
 
-    // TODO 地址的位宽是 32 还是 16 ？
+    // TODO 地址的位宽是 32 还是 17 ？
     input                           dec_valid,
     input [ ROB_TYPE_NUM_WIDTH-1:0] dec_rob_type,
     input [     `REG_NUM_WIDTH-1:0] dec_dest,
@@ -93,6 +93,8 @@ module rob (
 
     assign buffer_full = (buffer_size + dec_valid == ROB_SIZE);
 
+    // TODO store相关指令可以让RoB提交的时候返还给LSB，由LSB直接写回给Memory，
+    //      flush的时候不要清楚LSB中正在写回的store指令，这样可以有效避免RoB被访存指令阻塞。
     always @(posedge clk_in) begin
         if (rst_in) begin
             buffer_head <= 0;

@@ -46,9 +46,9 @@ module rs (
     reg signed [`ROB_SIZE_WIDTH-1:0] station_q2                [RS_SIZE-1:0];
     reg        [`ROB_SIZE_WIDTH-1:0] station_rob_id            [RS_SIZE-1:0];
     reg                              station_busy              [RS_SIZE-1:0];
-    reg        [    RS_SIZE_WIDTH:0] station_cnt;  // 多一位
+    reg        [    RS_SIZE_WIDTH:0] station_size;  // 多一位
 
-    assign station_full = (station_cnt + dec_valid) == RS_SIZE;
+    assign station_full = (station_size + dec_valid) == RS_SIZE;
 
     reg     break_flag;
     integer i;
@@ -58,7 +58,7 @@ module rs (
             for (i = 0; i < RS_SIZE; i = i + 1) begin
                 station_busy[i] <= 0;
             end
-            station_cnt <= 0;
+            station_size <= 0;
             ready <= 0;
         end else if (!rdy_in) begin
             /* do nothing */
@@ -68,12 +68,39 @@ module rs (
                 for (i = 0; i < RS_SIZE; i = i + 1) begin
                     station_busy[i] <= 0;
                 end
-                station_cnt <= 0;
+                station_size <= 0;
                 ready <= 0;
             end else begin
                 if (dec_valid) begin
-                    add_entry(calc_op_L1_in, calc_op_L2_in, value1_in, value2_in, query1_in,
-                              query2_in, new_rob_id_in);
+                    for (i = 0; i < RS_SIZE; i = i + 1) begin
+                        if (station_busy[i] == 0) begin
+                            station_calc_op_L1[i] <= calc_op_L1_in;
+                            station_calc_op_L2[i] <= calc_op_L2_in;
+                            if (alu_valid && query1_in == alu_dependency) begin
+                                station_q1[i] <= -1;
+                                station_v1[i] <= alu_value;
+                        end else if (mem_valid && query1_in == mem_dependency) begin
+                                station_q1[i] <= -1;
+                                station_v1[i] <= mem_value;
+                            end else begin
+                                station_q1[i] <= query1_in;
+                                station_v1[i] <= value1_in;
+                            end
+                            if (alu_valid && query2_in == alu_dependency) begin
+                                station_q2[i] <= -1;
+                                station_v2[i] <= alu_value;
+                            end else if (mem_valid && query2_in == mem_dependency) begin
+                                station_q2[i] <= -1;
+                                station_v2[i] <= mem_value;
+                            end else begin
+                                station_q2[i] <= query2_in;
+                                station_v2[i] <= value2_in;
+                            end
+                            station_rob_id[i] <= new_rob_id_in;
+                            station_busy[i] <= 1;
+                            station_size <= station_size + 1;
+                        end
+                    end
                 end
                 if (alu_valid) begin
                     update_dependency(alu_value, alu_dependency);
@@ -99,28 +126,6 @@ module rs (
             end
         end
     end
-
-    task add_entry;
-        input [2:0] calc_op_L1;
-        input calc_op_L2;
-        input [31:0] value1, value2;
-        input [`ROB_SIZE_WIDTH-1:0] query1, query2;
-        input [`ROB_SIZE_WIDTH-1:0] new_rob_id;
-
-        for (i = 0; i < RS_SIZE; i = i + 1) begin
-            if (station_busy[i] == 0) begin
-                station_calc_op_L1[i] <= calc_op_L1;
-                station_calc_op_L2[i] <= calc_op_L2;
-                station_v1[i] <= value1;
-                station_v2[i] <= value2;
-                station_q1[i] <= query1;
-                station_q2[i] <= query2;
-                station_rob_id[i] <= new_rob_id;
-                station_busy[i] <= 1;
-                station_cnt <= station_cnt + 1;
-            end
-        end
-    endtask
 
     task update_dependency;
         input [31:0] value;

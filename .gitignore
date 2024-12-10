@@ -1,6 +1,9 @@
 testcase
-testspace
 script
 fpga
 .vscode
 Makefile
+prj
+user
+doc
+!doc/micro-architecture.drawio

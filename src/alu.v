@@ -9,6 +9,7 @@ module ALU (
     input      [`ROB_SIZE_WIDTH-1:0] rob_id_in,
     input      [`ROB_SIZE_WIDTH-1:0] alu_op_L1_in,
     input                            alu_op_L2_in,
+    input                            alu_is_I_type,
     input                            clk_in,
     input                            rst_in,
     input                            rdy_in,
@@ -40,11 +41,16 @@ module ALU (
         end else begin
             if (!need_flush_in && valid) begin
                 case (alu_op_L1_in)
-                    ALU_ADD_SUB:
-                    case (alu_op_L2_in)
-                        ALU_ADD: value_out <= opr1_in + opr2_in;
-                        ALU_SUB: value_out <= opr1_in - opr2_in;
-                    endcase
+                    ALU_ADD_SUB: begin
+                        if (alu_is_I_type) begin
+                            value_out <= opr1_in + opr2_in;
+                        end else begin
+                            case (alu_op_L2_in)
+                                ALU_ADD: value_out <= opr1_in + opr2_in;
+                                ALU_SUB: value_out <= opr1_in - opr2_in;
+                            endcase
+                        end
+                    end
                     ALU_SLL: value_out <= opr1_in << opr2_in[4:0];
                     ALU_SLT: value_out <= ($signed(opr1_in) < $signed(opr2_in));
                     ALU_SLTU: value_out <= opr1_in < opr2_in;

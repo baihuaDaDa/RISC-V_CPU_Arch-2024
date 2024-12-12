@@ -50,7 +50,16 @@ module rob (
 
     output reg need_flush_out,
 
-    output wire buffer_full
+    // combinatorial logic
+    input wire [`ROB_SIZE_WIDTH-1:0] dec_dependency1,
+    input wire [`ROB_SIZE_WIDTH-1:0] dec_dependency2,
+
+    output wire is_found_1_out,
+    output wire [31:0] value1_out,
+    output wire is_found_2_out,
+    output wire [31:0] value2_out,
+    output wire buffer_full_out,
+    output wire next_rob_id_out
 );
 
     localparam ROB_SIZE_WIDTH = `ROB_SIZE_WIDTH;
@@ -63,13 +72,13 @@ module rob (
     localparam [ROB_STATE_NUM_WIDTH-1:0] ROB_STATE_EXECUTE = 2'b01;
     localparam [ROB_STATE_NUM_WIDTH-1:0] ROB_STATE_WRITE_RESULT = 2'b10;
 
-    localparam [ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_REG = 3'b000;
-    localparam [ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_JALR = 3'b001;
-    localparam [ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_STORE_BYTE = 3'b010;
-    localparam [ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_STORE_HALF = 3'b011;
-    localparam [ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_STORE_WORD = 3'b100;
-    localparam [ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_BRANCH = 3'b101;
-    localparam [ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_EXIT = 3'b110;
+    localparam [`ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_STORE_BYTE = 3'b000;
+    localparam [`ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_STORE_HALF = 3'b001;
+    localparam [`ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_STORE_WORD = 3'b010;
+    localparam [`ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_REG = 3'b011;
+    localparam [`ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_JALR = 3'b100;
+    localparam [`ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_BRANCH = 3'b101;
+    localparam [`ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_EXIT = 3'b110;
 
     localparam [STORE_TYPE_NUM_WIDTH-1:0] STORE_BYTE = 2'b00;
     localparam [STORE_TYPE_NUM_WIDTH-1:0] STORE_HALF = 2'b01;
@@ -91,7 +100,26 @@ module rob (
     assign rear_next = (buffer_rear + 1) & ROB_SIZE;
     assign front = (buffer_head + 1) & ROB_SIZE;
 
-    assign buffer_full = (buffer_size + dec_valid == ROB_SIZE);
+    assign value1_out = (dec_valid && rear_next == dec_dependency1) ? dec_value :
+                    (alu_valid && alu_dependency == dec_dependency1) ? alu_value :
+                    (mem_valid && mem_dependency == dec_dependency1) ? mem_value :
+                    (lsb_valid && lsb_dependency == dec_dependency1) ? lsb_value : buffer_value[dec_dependency1];
+    assign is_found_1_out = (dec_valid && rear_next == dec_dependency1 && dec_rob_state == ROB_STATE_WRITE_RESULT) ||
+                        (alu_valid && alu_dependency == dec_dependency1) ||
+                        (mem_valid && mem_dependency == dec_dependency1) ||
+                        (lsb_valid && lsb_dependency == dec_dependency1) ||
+                        (buffer_rob_state[dec_dependency1] == ROB_STATE_WRITE_RESULT);
+    assign value2_out = (dec_valid && rear_next == dec_dependency2) ? dec_value :
+                    (alu_valid && alu_dependency == dec_dependency2) ? alu_value :
+                    (mem_valid && mem_dependency == dec_dependency2) ? mem_value :
+                    (lsb_valid && lsb_dependency == dec_dependency2) ? lsb_value : buffer_value[dec_dependency2];
+    assign is_found_2_out = (dec_valid && rear_next == dec_dependency2 && dec_rob_state == ROB_STATE_WRITE_RESULT) ||
+                        (alu_valid && alu_dependency == dec_dependency2) ||
+                        (mem_valid && mem_dependency == dec_dependency2) ||
+                        (lsb_valid && lsb_dependency == dec_dependency2) ||
+                        (buffer_rob_state[dec_dependency2] == ROB_STATE_WRITE_RESULT);
+    assign buffer_full_out = (buffer_size + dec_valid == ROB_SIZE);
+    assign next_rob_id_out = (buffer_rear + 1 + dec_valid) & ROB_SIZE;
 
     // TODO store相关指令可以让RoB提交的时候返还给LSB，由LSB直接写回给Memory，
     //      flush的时候不要清楚LSB中正在写回的store指令，这样可以有效避免RoB被访存指令阻塞。

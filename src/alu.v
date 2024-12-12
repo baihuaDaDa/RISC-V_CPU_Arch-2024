@@ -3,29 +3,34 @@
 module ALU (
     input need_flush_in,
 
-    input                            valid,
-    input      [               31:0] opr1_in,
-    input      [               31:0] opr2_in,
-    input      [`ROB_SIZE_WIDTH-1:0] rob_id_in,
-    input      [`ROB_SIZE_WIDTH-1:0] alu_op_L1_in,
-    input                            alu_op_L2_in,
-    input                            alu_is_I_type,
-    input                            clk_in,
-    input                            rst_in,
-    input                            rdy_in,
-    output reg [               31:0] value_out,
-    output reg [`ROB_SIZE_WIDTH-1:0] rob_id_out,
-    output reg                       ready
+    input                                 valid,
+    input      [                    31:0] opr1_in,
+    input      [                    31:0] opr2_in,
+    input      [     `ROB_SIZE_WIDTH-1:0] rob_id_in,
+    input      [CALC_OP_L1_NUM_WIDTH-1:0] alu_op_L1_in,
+    input                                 alu_op_L2_in,
+    input                                 clk_in,
+    input                                 rst_in,
+    input                                 rdy_in,
+    output reg [                    31:0] value_out,
+    output reg [     `ROB_SIZE_WIDTH-1:0] rob_id_out,
+    output reg                            ready
 );
 
-    localparam [2:0] ALU_ADD_SUB = 3'b000;
-    localparam [2:0] ALU_SLL = 3'b001;
-    localparam [2:0] ALU_SLT = 3'b010;
-    localparam [2:0] ALU_SLTU = 3'b011;
-    localparam [2:0] ALU_XOR = 3'b100;
-    localparam [2:0] ALU_SRL_SRA = 3'b101;
-    localparam [2:0] ALU_OR = 3'b110;
-    localparam [2:0] ALU_AND = 3'b111;
+    localparam CALC_OP_L1_NUM_WIDTH = `CALC_OP_L1_NUM_WIDTH;
+
+    localparam [CALC_OP_L1_NUM_WIDTH-1:0] ALU_ADD_SUB = 4'b0000;
+    localparam [CALC_OP_L1_NUM_WIDTH-1:0] ALU_SLL = 4'b0001;
+    localparam [CALC_OP_L1_NUM_WIDTH-1:0] ALU_SLT = 4'b0010;
+    localparam [CALC_OP_L1_NUM_WIDTH-1:0] ALU_SLTU = 4'b0011;
+    localparam [CALC_OP_L1_NUM_WIDTH-1:0] ALU_XOR = 4'b0100;
+    localparam [CALC_OP_L1_NUM_WIDTH-1:0] ALU_SRL_SRA = 4'b0101;
+    localparam [CALC_OP_L1_NUM_WIDTH-1:0] ALU_OR = 4'b0110;
+    localparam [CALC_OP_L1_NUM_WIDTH-1:0] ALU_AND = 4'b0111;
+    localparam [CALC_OP_L1_NUM_WIDTH-1:0] ALU_SEQ = 4'b1000;
+    localparam [CALC_OP_L1_NUM_WIDTH-1:0] ALU_SNE = 4'b1001;
+    localparam [CALC_OP_L1_NUM_WIDTH-1:0] ALU_SGE = 4'b1101;
+    localparam [CALC_OP_L1_NUM_WIDTH-1:0] ALU_SGEU = 4'b1111;
 
     localparam ALU_ADD = 1'b0;
     localparam ALU_SUB = 1'b1;
@@ -41,16 +46,11 @@ module ALU (
         end else begin
             if (!need_flush_in && valid) begin
                 case (alu_op_L1_in)
-                    ALU_ADD_SUB: begin
-                        if (alu_is_I_type) begin
-                            value_out <= opr1_in + opr2_in;
-                        end else begin
-                            case (alu_op_L2_in)
-                                ALU_ADD: value_out <= opr1_in + opr2_in;
-                                ALU_SUB: value_out <= opr1_in - opr2_in;
-                            endcase
-                        end
-                    end
+                    ALU_ADD_SUB:
+                    case (alu_op_L2_in)
+                        ALU_ADD: value_out <= opr1_in + opr2_in;
+                        ALU_SUB: value_out <= opr1_in - opr2_in;
+                    endcase
                     ALU_SLL: value_out <= opr1_in << opr2_in[4:0];
                     ALU_SLT: value_out <= ($signed(opr1_in) < $signed(opr2_in));
                     ALU_SLTU: value_out <= opr1_in < opr2_in;
@@ -62,6 +62,10 @@ module ALU (
                     endcase
                     ALU_OR: value_out <= opr1_in | opr2_in;
                     ALU_AND: value_out <= opr1_in & opr2_in;
+                    ALU_SEQ: value_out <= opr1_in == opr2_in;
+                    ALU_SNE: value_out <= opr1_in != opr2_in;
+                    ALU_SGE: value_out <= ($signed(opr1_in) >= $signed(opr2_in));
+                    ALU_SGEU: value_out <= opr1_in >= opr2_in;
                 endcase
                 rob_id_out <= rob_id_in;
                 ready <= 1;

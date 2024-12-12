@@ -38,8 +38,9 @@ module lsb (
     output reg [               31:0] sb2rob_value,
     output reg                       sb2rob_ready,
 
-    output wire lb_full,
-    output wire sb_full
+    // combinatorial logic
+    output wire lb_full_out,
+    output wire sb_full_out
 );
 
     localparam LB_SIZE = `LB_SIZE;
@@ -49,20 +50,20 @@ module lsb (
     localparam MEM_TYPE_NUM_WIDTH = `MEM_TYPE_NUM_WIDTH;
     localparam LOAD_TYPE_NUM_WIDTH = `LOAD_TYPE_NUM_WIDTH;
 
-    localparam [MEM_TYPE_NUM_WIDTH-1:0] MEM_LB = 3'b000;
-    localparam [MEM_TYPE_NUM_WIDTH-1:0] MEM_LH = 3'b001;
-    localparam [MEM_TYPE_NUM_WIDTH-1:0] MEM_LW = 3'b010;
-    localparam [MEM_TYPE_NUM_WIDTH-1:0] MEM_LBU = 3'b011;
-    localparam [MEM_TYPE_NUM_WIDTH-1:0] MEM_LHU = 3'b100;
-    localparam [MEM_TYPE_NUM_WIDTH-1:0] MEM_SB = 3'b101;
-    localparam [MEM_TYPE_NUM_WIDTH-1:0] MEM_SH = 3'b110;
-    localparam [MEM_TYPE_NUM_WIDTH-1:0] MEM_SW = 3'b111;
+    localparam [MEM_TYPE_NUM_WIDTH-1:0] MEM_LB = 4'b0000;
+    localparam [MEM_TYPE_NUM_WIDTH-1:0] MEM_LH = 4'b0001;
+    localparam [MEM_TYPE_NUM_WIDTH-1:0] MEM_LW = 4'b0010;
+    localparam [MEM_TYPE_NUM_WIDTH-1:0] MEM_LBU = 4'b0100;
+    localparam [MEM_TYPE_NUM_WIDTH-1:0] MEM_LHU = 4'b0101;
+    localparam [MEM_TYPE_NUM_WIDTH-1:0] MEM_SB = 4'b1000;
+    localparam [MEM_TYPE_NUM_WIDTH-1:0] MEM_SH = 4'b1001;
+    localparam [MEM_TYPE_NUM_WIDTH-1:0] MEM_SW = 4'b1010;
 
     localparam [LOAD_TYPE_NUM_WIDTH-1:0] LOAD_BYTE = 3'b000;
     localparam [LOAD_TYPE_NUM_WIDTH-1:0] LOAD_HALF = 3'b001;
     localparam [LOAD_TYPE_NUM_WIDTH-1:0] LOAD_WORD = 3'b010;
-    localparam [LOAD_TYPE_NUM_WIDTH-1:0] LOAD_BYTE_UNSIGNED = 3'b011;
-    localparam [LOAD_TYPE_NUM_WIDTH-1:0] LOAD_HALF_UNSIGNED = 3'b100;
+    localparam [LOAD_TYPE_NUM_WIDTH-1:0] LOAD_BYTE_UNSIGNED = 3'b100;
+    localparam [LOAD_TYPE_NUM_WIDTH-1:0] LOAD_HALF_UNSIGNED = 3'b101;
 
     reg [      LB_SIZE_WIDTH-1:0] lb_size;
     reg                           lb_busy       [LB_SIZE-1:0];
@@ -95,8 +96,8 @@ module lsb (
     assign sb_rear_next = (sb_rear + 1) & SB_SIZE;
     assign sb_ptr = (index + sb_head + 1) & SB_SIZE;
 
-    assign lb_full = (lb_size + (dec_valid && dec_mem_type <= 3'b100) == LB_SIZE);
-    assign sb_full = (sb_size + (dec_valid && dec_mem_type > 3'b100) - rob_pop_sb == SB_SIZE);
+    assign lb_full_out = (lb_size + (dec_valid && dec_mem_type <= 3'b100) == LB_SIZE);
+    assign sb_full_out = (sb_size + (dec_valid && dec_mem_type > 3'b100) - rob_pop_sb == SB_SIZE);
 
     always @(posedge clk_in) begin
         if (rst_in) begin

@@ -135,11 +135,6 @@ module rob (
             need_flush_out <= 0;
         end else if (!rdy_in) begin
             /* do nothing */
-            rob2rf_ready   <= 0;
-            rob2mem_ready  <= 0;
-            rob2lsb_pop_sb <= 0;
-            rob2pred_ready <= 0;
-            need_flush_out <= 0;
         end else begin
             if (need_flush_out) begin
                 buffer_head <= 0;

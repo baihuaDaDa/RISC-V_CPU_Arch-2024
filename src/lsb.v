@@ -112,8 +112,6 @@ module lsb (
             sb2rob_ready <= 0;
         end else if (!rdy_in) begin
             /* do nothing */
-            lb2mem_ready <= 0;
-            sb2rob_ready <= 0;
         end else begin
             if (need_flush_in) begin
                 for (i = 0; i < LB_SIZE; i = i + 1) begin

@@ -42,7 +42,6 @@ module ALU (
             ready <= 0;
         end else if (!rdy_in) begin
             /* do nothing */
-            ready <= 0;
         end else begin
             if (!need_flush_in && valid) begin
                 case (alu_op_L1_in)

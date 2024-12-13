@@ -187,11 +187,6 @@ module dec (
             is_stall_out  <= 0;
         end else if (!rdy_in) begin
             /* do nothing */
-            dec2rob_ready <= 0;
-            dec2rs_ready  <= 0;
-            dec2lsb_ready <= 0;
-            dec2rf_ready  <= 0;
-            is_stall_out  <= 0;
         end else begin
             if (!need_flush_in && if_valid) begin
                 case (is_C)

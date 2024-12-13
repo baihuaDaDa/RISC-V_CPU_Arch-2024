@@ -8,7 +8,6 @@ module dec (
     input        if_valid,
     input [31:0] if_instr,
     input [31:0] if_instr_addr,
-    input [31:0] if_age,
     input        if_is_jump,
     input [31:0] if_jump_addr,
 
@@ -37,7 +36,6 @@ module dec (
     output reg [                     31:0] imm_out,           // for lsb (store)
     output reg [      `ROB_SIZE_WIDTH-1:0] rob_id_out,        // also for rf as dependency
     output reg [  `MEM_TYPE_NUM_WIDTH-1:0] mem_type_out,      // for lsb
-    output reg [                     31:0] age_out,           // for lsb
 
     // combinatorial logic
     input [`ROB_SIZE_WIDTH-1:0] rob_next_rob_id,
@@ -396,7 +394,6 @@ module dec (
                 is_jump_out <= 0;
                 rob_id_out <= rob_next_rob_id;
                 mem_type_out <= mem_type_L;
-                age_out <= if_age;
                 dependency1_out <= dependency1;
                 dependency2_out <= -1;
                 value1_out <= value1;
@@ -424,7 +421,6 @@ module dec (
                 is_jump_out <= 0;
                 mem_type_out <= mem_type_S;
                 rob_id_out <= rob_next_rob_id;
-                age_out <= if_age;
                 dependency1_out <= dependency1;
                 dependency2_out <= dependency2;
                 value1_out <= value1;

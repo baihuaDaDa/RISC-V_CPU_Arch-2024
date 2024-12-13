@@ -13,7 +13,6 @@ module lsb (
     input [   `ROB_SIZE_WIDTH-1:0] dec_dependency2,
     input [                  31:0] dec_imm,
     input [   `ROB_SIZE_WIDTH-1:0] dec_rob_id,
-    input [                  31:0] dec_age,          // TODO 位宽待定
 
     input                       alu_valid,
     input [`ROB_SIZE_WIDTH-1:0] alu_dependency,
@@ -65,6 +64,8 @@ module lsb (
     localparam [LOAD_TYPE_NUM_WIDTH-1:0] LOAD_BYTE_UNSIGNED = 3'b100;
     localparam [LOAD_TYPE_NUM_WIDTH-1:0] LOAD_HALF_UNSIGNED = 3'b101;
 
+    reg [31:0] age_cnt; // 位宽待定
+
     reg [      LB_SIZE_WIDTH-1:0] lb_size;
     reg                           lb_busy       [LB_SIZE-1:0];
     reg [LOAD_TYPE_NUM_WIDTH-1:0] lb_load_type  [LB_SIZE-1:0];
@@ -73,7 +74,7 @@ module lsb (
     reg [    `ROB_SIZE_WIDTH-1:0] lb_dependency1[LB_SIZE-1:0];
     reg [    `ROB_SIZE_WIDTH-1:0] lb_dependency2[LB_SIZE-1:0];
     reg [    `ROB_SIZE_WIDTH-1:0] lb_rob_id     [LB_SIZE-1:0];
-    reg [                   31:0] lb_age        [LB_SIZE-1:0];  // TODO 位宽待定
+    reg [                   31:0] lb_age        [LB_SIZE-1:0];
 
     reg [SB_SIZE_WIDTH-1:0] sb_head, sb_rear, sb_size;
     reg     [               31:0] sb_value1     [SB_SIZE-1:0];
@@ -82,7 +83,7 @@ module lsb (
     reg     [`ROB_SIZE_WIDTH-1:0] sb_dependency2[SB_SIZE-1:0];
     reg     [               31:0] sb_imm        [SB_SIZE-1:0];
     reg     [`ROB_SIZE_WIDTH-1:0] sb_rob_id     [SB_SIZE-1:0];
-    reg     [               31:0] sb_age        [SB_SIZE-1:0];  // TODO 位宽待定
+    reg     [               31:0] sb_age        [SB_SIZE-1:0];
 
     wire    [  SB_SIZE_WIDTH-1:0] sb_front;
     wire    [  SB_SIZE_WIDTH-1:0] sb_rear_next;
@@ -104,6 +105,7 @@ module lsb (
             for (i = 0; i < LB_SIZE; i = i + 1) begin
                 lb_busy[i] <= 1'b0;
             end
+            age_cnt <= 0;
             lb_size <= 0;
             sb_head <= 0;
             sb_rear <= 0;
@@ -125,6 +127,7 @@ module lsb (
                 sb2rob_ready <= 0;
             end else begin
                 if (dec_valid) begin
+                    age_cnt <= age_cnt + 1;
                     if (dec_mem_type <= 3'b100) begin
                         break_flag = 0;
                         for (i = 0; i < LB_SIZE && !break_flag; i = i + 1) begin
@@ -136,7 +139,7 @@ module lsb (
                                 lb_dependency1[i] <= dec_dependency1;
                                 lb_dependency2[i] <= dec_dependency2;
                                 lb_rob_id[i] <= dec_rob_id;
-                                lb_age[i] <= dec_age;
+                                lb_age[i] <= age_cnt;
                                 lb_size <= lb_size + 1;
                                 break_flag = 1;
                             end
@@ -148,7 +151,7 @@ module lsb (
                         sb_value2[sb_rear_next] <= dec_value2;
                         sb_imm[sb_rear_next] <= dec_imm;
                         sb_rob_id[sb_rear_next] <= dec_rob_id;
-                        sb_age[sb_rear_next] <= dec_age;
+                        sb_age[sb_rear_next] <= age_cnt;
                         sb_size <= sb_size + 1;
                         sb_rear <= sb_rear_next;
                     end

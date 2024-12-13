@@ -19,17 +19,19 @@ module rf (
     // combinatorial logic
     input [REG_NUM_WIDTH-1:0] dec_rs1,
     input [REG_NUM_WIDTH-1:0] dec_rs2,
+    input [REG_NUM_WIDTH-1:0] if_rs_jalr,
 
-    output wire [31:0] value1_out,
-    output wire [31:0] value2_out,
+    output wire [               31:0] value1_out,
+    output wire [               31:0] value2_out,
     output wire [`ROB_SIZE_WIDTH-1:0] dependency1_out,
-    output wire [`ROB_SIZE_WIDTH-1:0] dependency2_out
+    output wire [`ROB_SIZE_WIDTH-1:0] dependency2_out,
+    output wire [               31:0] value_jalr_out
 );
 
     localparam REG_NUM_WIDTH = `REG_NUM_WIDTH;
     localparam REG_NUM = `REG_NUM;
 
-    reg     [               31:0] regs         [REG_NUM-1:0];
+    reg     [               31:0] regs          [REG_NUM-1:0];
     reg     [`ROB_SIZE_WIDTH-1:0] reg_dependency[REG_NUM-1:0];
     integer                       i;
 
@@ -41,6 +43,7 @@ module rf (
     assign dependency2_out = (dec_valid && dec_rd == dec_rs2) ? dec_dependency :
                          (rob_valid && rob_rd == dec_rs2 && rob_dependency == reg_dependency[dec_rs1]) ? -1 :
                          reg_dependency[dec_rs2];
+    assign value_jalr_out = regs[if_rs_jalr];
 
     always @(posedge clk_in) begin
         if (rst_in) begin
@@ -65,12 +68,12 @@ module rf (
     end
 
     task flush;
-    begin
-        regs[0] <= 0;
-        for (i = 0; i < REG_NUM; i++) begin
-            reg_dependency[i] <= -1;
+        begin
+            regs[0] <= 0;
+            for (i = 0; i < REG_NUM; i++) begin
+                reg_dependency[i] <= -1;
+            end
         end
-    end
     endtask
 
 endmodule

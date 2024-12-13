@@ -32,7 +32,7 @@ module lsb (
     output reg [    `ROB_SIZE_WIDTH-1:0] lb2mem_dependency,
     output reg                           lb2mem_ready,
 
-    output reg [`ROB_SIZE_WIDTH-1:0] sb2rob_dependency,
+    output reg [`ROB_SIZE_WIDTH-1:0] sb2rob_rob_id,
     output reg [               31:0] sb2rob_dest,
     output reg [               31:0] sb2rob_value,
     output reg                       sb2rob_ready,
@@ -169,7 +169,7 @@ module lsb (
                     sb_size <= sb_size - 1;
                 end
                 if (sb_size && sb_dependency1[sb_front] == -1 && sb_dependency2[sb_front] == -1) begin
-                    sb2rob_dependency <= sb_rob_id[sb_front];
+                    sb2rob_rob_id <= sb_rob_id[sb_front];
                     sb2rob_dest <= sb_value1[sb_front] + sb_imm[sb_front];
                     sb2rob_value <= sb_value2[sb_front];
                     sb2rob_ready <= 1;

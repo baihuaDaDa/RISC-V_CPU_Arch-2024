@@ -72,13 +72,13 @@ module rob (
     localparam [ROB_STATE_NUM_WIDTH-1:0] ROB_STATE_EXECUTE = 2'b01;
     localparam [ROB_STATE_NUM_WIDTH-1:0] ROB_STATE_WRITE_RESULT = 2'b10;
 
-    localparam [`ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_STORE_BYTE = 3'b000;
-    localparam [`ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_STORE_HALF = 3'b001;
-    localparam [`ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_STORE_WORD = 3'b010;
-    localparam [`ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_REG = 3'b011;
-    localparam [`ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_JALR = 3'b100;
-    localparam [`ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_BRANCH = 3'b101;
-    localparam [`ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_EXIT = 3'b110;
+    localparam [ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_STORE_BYTE = 3'b000;
+    localparam [ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_STORE_HALF = 3'b001;
+    localparam [ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_STORE_WORD = 3'b010;
+    localparam [ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_REG = 3'b011;
+    localparam [ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_JALR = 3'b100;
+    localparam [ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_BRANCH = 3'b101;
+    localparam [ROB_TYPE_NUM_WIDTH-1:0] ROB_TYPE_EXIT = 3'b110;
 
     localparam [STORE_TYPE_NUM_WIDTH-1:0] STORE_BYTE = 2'b00;
     localparam [STORE_TYPE_NUM_WIDTH-1:0] STORE_HALF = 2'b01;

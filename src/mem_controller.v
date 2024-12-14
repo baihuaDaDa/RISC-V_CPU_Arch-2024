@@ -52,6 +52,7 @@ module mem_unit (
     /* TODO: RoB 和 LSB 可能同时发出读/写请求，需要解决冲突。
              如果优化 RoB 阻塞 Store 的问题可以直接解决这个问题。*/
     // TODO: ic_valid 到底要不要持续
+    // TODO: busy_out 可优化
 
     reg  [               31:0] tmp_result;
     reg                        working;

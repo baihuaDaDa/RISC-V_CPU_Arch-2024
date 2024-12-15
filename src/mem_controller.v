@@ -1,6 +1,6 @@
 `include "src/const_param.v"
 
-module mem_unit (
+module mem_controller (
     input clk_in,
     input rst_in,
     input rdy_in,
@@ -28,7 +28,7 @@ module mem_unit (
     input [LOAD_TYPE_NUM_WIDTH-1:0] lsb_load_type,
 
     output reg                        dout_ready,
-    output reg iout_ready,
+    output reg                        iout_ready,
     // 由于从 ram 读取数据只能在下一周期接收结果，所以用 wire 类型直接连接
     output wire [               31:0] out,
     output reg  [`ROB_SIZE_WIDTH-1:0] dependency_out,
@@ -62,8 +62,8 @@ module mem_unit (
     reg  [               31:0] tmp_ain;
     reg  [`ROB_SIZE_WIDTH-1:0] tmp_lsb_dependency;
     reg                        tmp_wr;
-    reg tmp_is_unsigned;  // 1 for unsigned, 0 for signed
-    reg tmp_is_instr;
+    reg                        tmp_is_unsigned;  // 1 for unsigned, 0 for signed
+    reg                        tmp_is_instr;
 
     wire                       wire_working;
     wire [                1:0] wire_work_time;
@@ -102,80 +102,80 @@ module mem_unit (
                 dout_ready <= 0;
                 iout_ready <= 0;
             end else begin
-            if (!cur_working) begin
-                dout_ready <= 0;
-                iout_ready <= 0;
-            end else begin
-                // init
-                if (work_cycle == 2'b00) begin
+                if (!cur_working) begin
                     dout_ready <= 0;
                     iout_ready <= 0;
-                    working <= wire_working;
-                    work_time <= wire_work_time;
-                    tmp_result <= 0;
-                    tmp_din <= rob_din;
-                    tmp_ain <= wire_ain;
-                    tmp_lsb_dependency <= lsb_dependency;
-                    tmp_wr <= rob_valid;
-                    tmp_is_unsigned <= lsb_load_type[2];
-                    tmp_is_instr <= ic_valid;
-                end
-                case (work_cycle)
-                    2'b00: begin
-                        byte_a   <= cur_ain;
-                        byte_din <= cur_din[7:0];
-                        byte_wr  <= cur_wr;
-                        if (cur_work_time) begin
-                            work_cycle <= 2'b01;
-                        end else begin
-                            work_cycle <= 2'b00;
-                            working <= 0;
-                            dout_ready <= cur_wr;
-                            dependency_out <= tmp_lsb_dependency;
-                        end
+                end else begin
+                    // init
+                    if (work_cycle == 2'b00) begin
+                        dout_ready <= 0;
+                        iout_ready <= 0;
+                        working <= wire_working;
+                        work_time <= wire_work_time;
+                        tmp_result <= 0;
+                        tmp_din <= rob_din;
+                        tmp_ain <= wire_ain;
+                        tmp_lsb_dependency <= lsb_dependency;
+                        tmp_wr <= rob_valid;
+                        tmp_is_unsigned <= lsb_load_type[2];
+                        tmp_is_instr <= ic_valid;
                     end
-                    2'b01: begin
-                        tmp_result[7:0] <= byte_dout;
-                        byte_a <= cur_ain + 1;
-                        byte_din <= cur_din[15:8];
-                        byte_wr <= cur_wr;
-                        if (cur_work_time <= 2'b01 || (tmp_is_instr && byte_dout[1:0] != 2'b11)) begin
+                    case (work_cycle)
+                        2'b00: begin
+                            byte_a   <= cur_ain;
+                            byte_din <= cur_din[7:0];
+                            byte_wr  <= cur_wr;
+                            if (cur_work_time) begin
+                                work_cycle <= 2'b01;
+                            end else begin
+                                work_cycle <= 2'b00;
+                                working <= 0;
+                                dout_ready <= cur_wr;
+                                dependency_out <= tmp_lsb_dependency;
+                            end
+                        end
+                        2'b01: begin
+                            tmp_result[7:0] <= byte_dout;
+                            byte_a <= cur_ain + 1;
+                            byte_din <= cur_din[15:8];
+                            byte_wr <= cur_wr;
+                            if (cur_work_time <= 2'b01 || (tmp_is_instr && byte_dout[1:0] != 2'b11)) begin
+                                if (tmp_is_instr) begin
+                                    work_time  <= 2'b01;
+                                    iout_ready <= 1;
+                                end else begin
+                                    dout_ready <= cur_wr;
+                                    dependency_out <= tmp_lsb_dependency;
+                                end
+                                work_cycle <= 2'b00;
+                                working <= 0;
+                            end else begin
+                                work_cycle <= 2'b10;
+                            end
+                        end
+                        2'b10: begin
+                            tmp_result[15:8] <= byte_dout;
+                            work_cycle <= 2'b11;
+                            byte_a <= cur_ain + 2;
+                            byte_din <= cur_din[23:16];
+                            byte_wr <= cur_wr;
+                        end
+                        2'b11: begin
+                            tmp_result[23:16] <= byte_dout;
+                            work_cycle <= 2'b00;
+                            byte_a <= cur_ain + 3;
+                            byte_din <= cur_din[31:24];
+                            byte_wr <= cur_wr;
+                            working <= 0;
                             if (tmp_is_instr) begin
-                                work_time <= 2'b01;
                                 iout_ready <= 1;
                             end else begin
                                 dout_ready <= cur_wr;
                                 dependency_out <= tmp_lsb_dependency;
                             end
-                            work_cycle <= 2'b00;
-                            working <= 0;
-                        end else begin
-                            work_cycle <= 2'b10;
                         end
-                    end
-                    2'b10: begin
-                        tmp_result[15:8] <= byte_dout;
-                        work_cycle <= 2'b11;
-                        byte_a <= cur_ain + 2;
-                        byte_din <= cur_din[23:16];
-                        byte_wr <= cur_wr;
-                    end
-                    2'b11: begin
-                        tmp_result[23:16] <= byte_dout;
-                        work_cycle <= 2'b00;
-                        byte_a <= cur_ain + 3;
-                        byte_din <= cur_din[31:24];
-                        byte_wr <= cur_wr;
-                        working <= 0;
-                        if (tmp_is_instr) begin
-                            iout_ready <= 1;
-                        end else begin
-                        dout_ready <= cur_wr;
-                        dependency_out <= tmp_lsb_dependency;
-                        end
-                    end
-                endcase
-            end
+                    endcase
+                end
             end
         end
     end

@@ -5,12 +5,12 @@ module predictor(
     input rst_in,
     input rdy_in,
 
-    input [31:0] pc_in,
-    
     input rob_valid,
     input [31:0] rob_instr_addr,
     input rob_is_jump,
 
+    // combinatorial logic
+    input [31:0] pc_in,
     output wire pred2if_result
 );
 

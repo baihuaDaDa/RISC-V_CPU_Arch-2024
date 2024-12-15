@@ -11,7 +11,7 @@ module icache(
     input [31:0] mem_instr,
 
     output reg miss_out,
-    output reg instr_addr_out,
+    output reg [31:0] instr_addr_out,
 
     // combinatorial logic
     input if_valid,

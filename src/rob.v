@@ -6,7 +6,6 @@ module rob (
     input rst_in,
     input rdy_in,
 
-    // TODO 地址的位宽是 32 还是 17 ？
     input                           dec_valid,
     input [ ROB_TYPE_NUM_WIDTH-1:0] dec_rob_type,
     input [     `REG_NUM_WIDTH-1:0] dec_dest,
@@ -27,39 +26,34 @@ module rob (
 
     input                      lsb_valid,
     input [ROB_SIZE_WIDTH-1:0] lsb_rob_id,
-    input [`REG_NUM_WIDTH-1:0] lsb_dest,
+    input [              31:0] lsb_dest,
     input [              31:0] lsb_value,
 
-    output reg [`REG_NUM_WIDTH-1:0] rob2rf_rd,
-    output reg [              31:0] rob2rf_value,
-    output reg [ROB_SIZE_WIDTH-1:0] rob2rf_rob_id,
-    output reg                      rob2rf_ready,
-
-    output reg [ 2:0] rob2mem_store_type,
-    output reg [31:0] rob2mem_addr,
-    output reg [31:0] rob2mem_value,
-    output reg        rob2mem_ready,
-
+    output reg rob2rf_ready,
+    output reg rob2mem_ready,
     output reg rob2lsb_pop_sb,
-
-    output reg [31:0] rob2if_jump_addr,
-
-    output reg [31:0] rob2pred_instr_addr,
-    output reg        rob2pred_is_jump,
-    output reg        rob2pred_ready,
-
+    output reg rob2pred_ready,
     output reg need_flush_out,
+
+    output reg [`REG_NUM_WIDTH-1:0] rd_out,  // for rf
+    output reg [31:0] value_out,  // for rf and mem
+    output reg [ROB_SIZE_WIDTH-1:0] dependency_out,  // for rf
+    output reg [STORE_TYPE_NUM_WIDTH-1:0] store_type_out,  // for mem
+    output reg [31:0] data_addr_out,  // for mem
+    output reg [31:0] jump_addr_out,  // for if, valid only if need_flush_out is high
+    output reg [31:0] instr_addr_out,  // for pred
+    output reg is_jump_out,  // for pred
 
     // combinatorial logic
     input wire [`ROB_SIZE_WIDTH-1:0] dec_dependency1,
     input wire [`ROB_SIZE_WIDTH-1:0] dec_dependency2,
 
-    output wire is_found_1_out,
-    output wire [31:0] value1_out,
-    output wire is_found_2_out,
-    output wire [31:0] value2_out,
-    output wire buffer_full_out,
-    output wire next_rob_id_out
+    output wire                      is_found_1_out,
+    output wire [              31:0] value1_out,
+    output wire                      is_found_2_out,
+    output wire [              31:0] value2_out,
+    output wire                      buffer_full_out,
+    output wire [ROB_SIZE_WIDTH-1:0] next_rob_id_out
 );
 
     localparam ROB_SIZE_WIDTH = `ROB_SIZE_WIDTH;
@@ -86,14 +80,14 @@ module rob (
 
     // LoopQueue<RoBEntry, kBufferCapBin> buffer;
     reg [ROB_SIZE_WIDTH-1:0] buffer_head, buffer_rear, buffer_size;
-    reg [ ROB_TYPE_NUM_WIDTH-1:0] buffer_rob_type  [ROB_SIZE:0];  // ROB_SIZE = 31
-    reg [     `REG_NUM_WIDTH-1:0] buffer_dest_reg      [ROB_SIZE:0];
-    reg [31:0] buffer_dest_mem [ROB_SIZE:0];  // for S-type
-    reg [                   31:0] buffer_value     [ROB_SIZE:0];
-    reg [                   31:0] buffer_instr_addr[ROB_SIZE:0];
-    reg [                   31:0] buffer_jump_addr [ROB_SIZE:0];
-    reg [ROB_STATE_NUM_WIDTH-1:0] buffer_rob_state [ROB_SIZE:0];
-    reg                           buffer_is_jump   [ROB_SIZE:0];
+    reg  [ ROB_TYPE_NUM_WIDTH-1:0] buffer_rob_type  [ROB_SIZE:0];  // ROB_SIZE = 31
+    reg  [     `REG_NUM_WIDTH-1:0] buffer_dest_reg  [ROB_SIZE:0];
+    reg  [                   31:0] buffer_dest_mem  [ROB_SIZE:0];  // for S-type
+    reg  [                   31:0] buffer_value     [ROB_SIZE:0];
+    reg  [                   31:0] buffer_instr_addr[ROB_SIZE:0];
+    reg  [                   31:0] buffer_jump_addr [ROB_SIZE:0];
+    reg  [ROB_STATE_NUM_WIDTH-1:0] buffer_rob_state [ROB_SIZE:0];
+    reg                            buffer_is_jump   [ROB_SIZE:0];
 
     wire [     ROB_SIZE_WIDTH-1:0] rear_next;
     wire [     ROB_SIZE_WIDTH-1:0] front;
@@ -171,9 +165,9 @@ module rob (
                 if (buffer_rob_state[front] == ROB_STATE_WRITE_RESULT) begin
                     case (buffer_rob_type[front])
                         ROB_TYPE_REG: begin
-                            rob2rf_rd <= buffer_dest_reg[front];
-                            rob2rf_value <= buffer_value[front];
-                            rob2rf_rob_id <= front;
+                            rd_out <= buffer_dest_reg[front];
+                            value_out <= buffer_value[front];
+                            dependency_out <= front;
                             rob2rf_ready <= 1;
                             rob2mem_ready <= 0;
                             rob2lsb_pop_sb <= 0;
@@ -181,25 +175,25 @@ module rob (
                             need_flush_out <= 0;
                         end
                         ROB_TYPE_JALR: begin
-                            rob2rf_rd <= buffer_dest_reg[front];
-                            rob2rf_value <= buffer_instr_addr[front] + 4;
-                            rob2rf_rob_id <= front;
+                            rd_out <= buffer_dest_reg[front];
+                            value_out <= buffer_instr_addr[front] + 4;
+                            dependency_out <= front;
                             rob2rf_ready <= 1;
                             rob2mem_ready <= 0;
                             rob2lsb_pop_sb <= 0;
                             rob2pred_ready <= 0;
                             if (buffer_jump_addr[front] != buffer_value[front]) begin
-                                rob2if_jump_addr <= buffer_value[front];
-                                need_flush_out   <= 1;
+                                jump_addr_out  <= buffer_value[front];
+                                need_flush_out <= 1;
                             end else begin
                                 need_flush_out <= 0;
                             end
                         end
                         ROB_TYPE_STORE_BYTE: begin
                             if (!mem_busy) begin
-                                rob2mem_store_type <= STORE_BYTE;
-                                rob2mem_addr <= buffer_dest_mem[front];
-                                rob2mem_value <= buffer_value[front];
+                                store_type_out <= STORE_BYTE;
+                                data_addr_out <= buffer_dest_mem[front];
+                                value_out <= buffer_value[front];
                                 rob2mem_ready <= 1;
                                 rob2lsb_pop_sb <= 1;
                                 rob2rf_ready <= 0;
@@ -209,9 +203,9 @@ module rob (
                         end
                         ROB_TYPE_STORE_HALF: begin
                             if (!mem_busy) begin
-                                rob2mem_store_type <= STORE_HALF;
-                                rob2mem_addr <= buffer_dest_mem[front];
-                                rob2mem_value <= buffer_value[front];
+                                store_type_out <= STORE_HALF;
+                                data_addr_out <= buffer_dest_mem[front];
+                                value_out <= buffer_value[front];
                                 rob2mem_ready <= 1;
                                 rob2lsb_pop_sb <= 1;
                                 rob2rf_ready <= 0;
@@ -221,9 +215,9 @@ module rob (
                         end
                         ROB_TYPE_STORE_WORD: begin
                             if (!mem_busy) begin
-                                rob2mem_store_type <= STORE_WORD;
-                                rob2mem_addr <= buffer_dest_mem[front];
-                                rob2mem_value <= buffer_value[front];
+                                store_type_out <= STORE_WORD;
+                                data_addr_out <= buffer_dest_mem[front];
+                                value_out <= buffer_value[front];
                                 rob2mem_ready <= 1;
                                 rob2lsb_pop_sb <= 1;
                                 rob2rf_ready <= 0;
@@ -232,14 +226,14 @@ module rob (
                             end
                         end
                         ROB_TYPE_BRANCH: begin
-                            rob2pred_instr_addr <= buffer_instr_addr[front];
-                            rob2pred_is_jump <= (buffer_value[front] == 1);
+                            instr_addr_out <= buffer_instr_addr[front];
+                            is_jump_out <= (buffer_value[front] == 1);
                             rob2pred_ready <= 1;
                             rob2rf_ready <= 0;
                             rob2mem_ready <= 0;
                             rob2lsb_pop_sb <= 0;
                             if (buffer_value[front] != buffer_is_jump[front]) begin
-                                rob2if_jump_addr <= (buffer_value[front] == 1) ? buffer_jump_addr[front] : buffer_instr_addr[front] + 4;
+                                jump_addr_out <= (buffer_value[front] == 1) ? buffer_jump_addr[front] : buffer_instr_addr[front] + 4;
                                 need_flush_out <= 1;
                             end else begin
                                 need_flush_out <= 0;

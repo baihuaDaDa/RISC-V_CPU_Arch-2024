@@ -22,14 +22,14 @@ module rs (
     input [                    31:0] value1_in,
     input [                    31:0] value2_in,
     input [     `ROB_SIZE_WIDTH-1:0] query1_in,
-    input [                    31:0] query2_in,
+    input [     `ROB_SIZE_WIDTH-1:0] query2_in,
     input [     `ROB_SIZE_WIDTH-1:0] new_rob_id_in,
 
     output reg [CALC_OP_L1_NUM_WIDTH-1:0] rs2alu_op_L1,
     output reg                            rs2alu_op_L2,
     output reg [                    31:0] rs2alu_opr1,
     output reg [                    31:0] rs2alu_opr2,
-    output reg [     `ROB_SIZE_WIDTH-1:0] rs2alu_rob_id,
+    output reg [     `ROB_SIZE_WIDTH-1:0] rs2alu_dependency,
     output reg                            rs2alu_ready,
 
     // combinatorial logic
@@ -40,14 +40,14 @@ module rs (
     localparam RS_SIZE = `RS_SIZE;
     localparam CALC_OP_L1_NUM_WIDTH = `CALC_OP_L1_NUM_WIDTH;
 
-    reg        [CALC_OP_L1_NUM_WIDTH-1:0] station_calc_op_L1         [RS_SIZE-1:0];
-    reg                                   station_calc_op_L2         [RS_SIZE-1:0];
-    reg        [                    31:0] station_v1                 [RS_SIZE-1:0];
-    reg        [                    31:0] station_v2                 [RS_SIZE-1:0];
-    reg signed [     `ROB_SIZE_WIDTH-1:0] station_q1                 [RS_SIZE-1:0];
-    reg signed [     `ROB_SIZE_WIDTH-1:0] station_q2                 [RS_SIZE-1:0];
-    reg        [     `ROB_SIZE_WIDTH-1:0] station_rob_id             [RS_SIZE-1:0];
-    reg                                   station_busy               [RS_SIZE-1:0];
+    reg        [CALC_OP_L1_NUM_WIDTH-1:0] station_calc_op_L1          [RS_SIZE-1:0];
+    reg                                   station_calc_op_L2          [RS_SIZE-1:0];
+    reg        [                    31:0] station_v1                  [RS_SIZE-1:0];
+    reg        [                    31:0] station_v2                  [RS_SIZE-1:0];
+    reg signed [     `ROB_SIZE_WIDTH-1:0] station_q1                  [RS_SIZE-1:0];
+    reg signed [     `ROB_SIZE_WIDTH-1:0] station_q2                  [RS_SIZE-1:0];
+    reg        [     `ROB_SIZE_WIDTH-1:0] station_rob_id              [RS_SIZE-1:0];
+    reg                                   station_busy                [RS_SIZE-1:0];
     reg        [         RS_SIZE_WIDTH:0] station_size;  // 多一位
 
     assign station_full_out = (station_size + dec_valid) == RS_SIZE;
@@ -118,7 +118,7 @@ module rs (
                             rs2alu_op_L2 <= station_calc_op_L2[i];
                             rs2alu_opr1 <= station_v1[i];
                             rs2alu_opr2 <= station_v2[i];
-                            rs2alu_rob_id <= station_rob_id[i];
+                            rs2alu_dependency <= station_rob_id[i];
                             break_flag = 1;  // break
                         end
                     end

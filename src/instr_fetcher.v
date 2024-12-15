@@ -23,7 +23,7 @@ module instr_fetcher (
     input [31:0] rf_value_jalr,
     
     output wire fetch_enable_out,
-    output wire pc_out,
+    output wire [31:0] pc_out,
     output wire [`REG_NUM_WIDTH-1:0] rs_jalr_out
 );
 

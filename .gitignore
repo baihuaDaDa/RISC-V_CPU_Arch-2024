@@ -3,7 +3,6 @@ testspace
 script
 fpga
 .vscode
-Makefile
 prj
 user
 doc

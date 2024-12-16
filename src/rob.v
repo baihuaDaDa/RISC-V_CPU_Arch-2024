@@ -115,7 +115,7 @@ module rob (
     // TODO store相关指令可以让RoB提交的时候返还给LSB，由LSB直接写回给Memory，
     //      flush的时候不要清楚LSB中正在写回的store指令，这样可以有效避免RoB被访存指令阻塞。
     always @(posedge clk_in) begin
-        if (rst_in) begin
+        if (rst_in !== 1'b0) begin
             buffer_head <= 0;
             buffer_rear <= 0;
             buffer_size <= 0;
@@ -139,7 +139,6 @@ module rob (
             end else begin
                 if (dec_valid) begin
                     buffer_rear <= rear_next;
-                    buffer_size <= buffer_size + 1;
                     buffer_rob_type[rear_next] <= dec_rob_type;
                     buffer_dest_reg[rear_next] <= dec_dest;
                     buffer_value[rear_next] <= dec_value;
@@ -147,7 +146,6 @@ module rob (
                     buffer_jump_addr[rear_next] <= dec_jump_addr;
                     buffer_rob_state[rear_next] <= dec_rob_state;
                     buffer_is_jump[rear_next] <= dec_is_jump;
-                    buffer_rear <= rear_next;
                 end
                 if (alu_valid) begin
                     buffer_value[alu_dependency] <= alu_value;
@@ -240,6 +238,10 @@ module rob (
                             end
                         end
                     endcase
+                    if (!mem_busy || (buffer_rob_type[front] != ROB_TYPE_STORE_BYTE && buffer_rob_type[front] != ROB_TYPE_STORE_HALF && buffer_rob_type[front] != ROB_TYPE_STORE_WORD)) begin
+                        buffer_head <= front;
+                        buffer_size <= buffer_size + dec_valid - 1;
+                    end
                 end
             end
         end

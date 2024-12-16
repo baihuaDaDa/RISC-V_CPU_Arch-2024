@@ -40,7 +40,7 @@ module alu (
     localparam ALU_SRA = 1'b1;
 
     always @(posedge clk_in) begin
-        if (rst_in) begin
+        if (rst_in !== 1'b0) begin
             ready_out <= 0;
         end else if (!rdy_in) begin
             /* do nothing */

@@ -2,16 +2,16 @@
 // port modification allowed for debugging purposes
 
 `include "src/const_param.v"
-`include "src/instr_fetcher.v"
-`include "src/predictor.v"
-`include "src/dec.v"
-`include "src/rob.v"
-`include "src/lsb.v"
-`include "src/rs.v"
-`include "src/alu.v"
-`include "src/icache.v"
-`include "src/mem_controller.v"
-`include "src/rf.v"
+// `include "src/instr_fetcher.v"
+// `include "src/predictor.v"
+// `include "src/dec.v"
+// `include "src/rob.v"
+// `include "src/lsb.v"
+// `include "src/rs.v"
+// `include "src/alu.v"
+// `include "src/icache.v"
+// `include "src/mem_controller.v"
+// `include "src/rf.v"
 
 module cpu (
     input wire clk_in,  // system clock signal
@@ -131,7 +131,8 @@ module cpu (
     // icache
     wire                             ic2mem_miss;
     wire [                     31:0] ic2mem_instr_addr;
-    wire                             ic2if_instr_ready;
+    wire ic2if_hit;
+    wire                             ic2if_miss_ready;
     wire [                     31:0] ic2if_instr;
 
     // mem_controller
@@ -162,7 +163,8 @@ module cpu (
         .if2dec_jump_addr (if2dec_jump_addr),
         // combinatorial logic
         .pred_is_jump     (pred2if_result),
-        .ic_valid         (ic2if_instr_ready),
+        .ic_hit           (ic2if_hit),
+        .ic_miss_ready         (ic2if_miss_ready),
         .ic_instr         (ic2if_instr),
         .rf_value_jalr    (rf_value_jalr),
         .fetch_enable_out (if2ic_fetch_enable),
@@ -369,7 +371,8 @@ module cpu (
         // combinatorial logic
         .if_valid       (if2ic_fetch_enable),
         .if_instr_addr  (if_pc),
-        .instr_ready_out(ic2if_instr_ready),
+        .hit_out(ic2if_hit),
+        .miss_ready_out(ic2if_miss_ready),
         .instr_out      (ic2if_instr)
     );
 

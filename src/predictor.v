@@ -30,7 +30,7 @@ module predictor(
 
     // update
     always@(posedge clk_in) begin
-        if (rst_in) begin
+        if (rst_in !== 1'b0) begin
             for (i = 0; i < PREDICTOR_SIZE; i = i + 1) begin
                 counter[i] <= 0;
             end

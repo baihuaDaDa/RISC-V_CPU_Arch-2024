@@ -64,17 +64,17 @@ module lsb (
     localparam [LOAD_TYPE_NUM_WIDTH-1:0] LOAD_BYTE_UNSIGNED = 3'b100;
     localparam [LOAD_TYPE_NUM_WIDTH-1:0] LOAD_HALF_UNSIGNED = 3'b101;
 
-    reg [31:0] age_cnt; // 位宽待定
+    reg [                   31:0] age_cnt;  // 位宽待定
 
-    reg [      LB_SIZE_WIDTH-1:0] lb_size;
-    reg                           lb_busy       [LB_SIZE-1:0];
-    reg [LOAD_TYPE_NUM_WIDTH-1:0] lb_load_type  [LB_SIZE-1:0];
-    reg [                   31:0] lb_value1     [LB_SIZE-1:0];
-    reg [                   31:0] lb_value2     [LB_SIZE-1:0];
-    reg [    `ROB_SIZE_WIDTH-1:0] lb_dependency1[LB_SIZE-1:0];
-    reg [    `ROB_SIZE_WIDTH-1:0] lb_dependency2[LB_SIZE-1:0];
-    reg [    `ROB_SIZE_WIDTH-1:0] lb_rob_id     [LB_SIZE-1:0];
-    reg [                   31:0] lb_age        [LB_SIZE-1:0];
+    reg [        LB_SIZE_WIDTH:0] lb_size;  // 多一位
+    reg                           lb_busy                   [LB_SIZE-1:0];
+    reg [LOAD_TYPE_NUM_WIDTH-1:0] lb_load_type              [LB_SIZE-1:0];
+    reg [                   31:0] lb_value1                 [LB_SIZE-1:0];
+    reg [                   31:0] lb_value2                 [LB_SIZE-1:0];
+    reg [    `ROB_SIZE_WIDTH-1:0] lb_dependency1            [LB_SIZE-1:0];
+    reg [    `ROB_SIZE_WIDTH-1:0] lb_dependency2            [LB_SIZE-1:0];
+    reg [    `ROB_SIZE_WIDTH-1:0] lb_rob_id                 [LB_SIZE-1:0];
+    reg [                   31:0] lb_age                    [LB_SIZE-1:0];
 
     reg [SB_SIZE_WIDTH-1:0] sb_head, sb_rear, sb_size;
     reg     [               31:0] sb_value1     [SB_SIZE-1:0];
@@ -101,7 +101,7 @@ module lsb (
     assign sb_full_out = (sb_size + (dec_valid && dec_mem_type > 3'b100) - rob_pop_sb == SB_SIZE);
 
     always @(posedge clk_in) begin
-        if (rst_in) begin
+        if (rst_in !== 1'b0) begin
             for (i = 0; i < LB_SIZE; i = i + 1) begin
                 lb_busy[i] <= 1'b0;
             end
@@ -140,7 +140,6 @@ module lsb (
                                 lb_dependency2[i] <= dec_dependency2;
                                 lb_rob_id[i] <= dec_rob_id;
                                 lb_age[i] <= age_cnt;
-                                lb_size <= lb_size + 1;
                                 break_flag = 1;
                             end
                         end
@@ -152,7 +151,6 @@ module lsb (
                         sb_imm[sb_rear_next] <= dec_imm;
                         sb_rob_id[sb_rear_next] <= dec_rob_id;
                         sb_age[sb_rear_next] <= age_cnt;
-                        sb_size <= sb_size + 1;
                         sb_rear <= sb_rear_next;
                     end
                 end
@@ -166,26 +164,26 @@ module lsb (
                 end
                 if (rob_pop_sb) begin
                     sb_head <= (sb_head + 1) & SB_SIZE;
-                    sb_size <= sb_size - 1;
+                    sb_size <= sb_size + (dec_valid && dec_mem_type > 3'b100) -1;
                 end
-                if (sb_size && sb_dependency1[sb_front] == -1 && sb_dependency2[sb_front] == -1) begin
+                if (sb_size && !rob_pop_sb && (&sb_dependency1[sb_front]) && (&sb_dependency2[sb_front])) begin
                     sb2rob_rob_id <= sb_rob_id[sb_front];
-                    sb2rob_dest <= sb_value1[sb_front] + sb_imm[sb_front];
-                    sb2rob_value <= sb_value2[sb_front];
-                    sb2rob_ready <= 1;
+                    sb2rob_dest   <= sb_value1[sb_front] + sb_imm[sb_front];
+                    sb2rob_value  <= sb_value2[sb_front];
+                    sb2rob_ready  <= 1;
                 end else begin
                     sb2rob_ready <= 0;
                 end
                 if (!mem_busy) begin
                     break_flag = 0;
                     for (i = 0; i < LB_SIZE && !break_flag; i = i + 1) begin
-                        if (lb_busy[i] && lb_dependency1[i] == -1 && (sb_size == 0 || (sb_size && lb_age[i] < sb_age[sb_front]))) begin
+                        if (lb_busy[i] && (&lb_dependency1[i]) && (sb_size == 0 || (sb_size && lb_age[i] < sb_age[sb_front]))) begin
                             lb2mem_load_type <= lb_load_type[i];
                             lb2mem_addr <= lb_value1[i] + lb_value2[i];
                             lb2mem_dependency <= lb_rob_id[i];
                             lb2mem_ready <= 1;
                             lb_busy[i] <= 0;
-                            lb_size <= lb_size - 1;
+                            lb_size <= lb_size + (dec_valid && dec_mem_type <= 3'b100) - 1;
                             break_flag = 1;
                         end
                     end

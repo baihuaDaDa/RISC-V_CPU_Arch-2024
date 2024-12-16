@@ -56,7 +56,7 @@ module rs (
     integer i;
 
     always @(posedge clk_in) begin
-        if (rst_in) begin
+        if (rst_in !== 1'b0) begin
             for (i = 0; i < RS_SIZE; i = i + 1) begin
                 station_busy[i] <= 0;
             end
@@ -73,7 +73,8 @@ module rs (
                 rs2alu_ready <= 0;
             end else begin
                 if (dec_valid) begin
-                    for (i = 0; i < RS_SIZE; i = i + 1) begin
+                    break_flag = 0;
+                    for (i = 0; i < RS_SIZE && !break_flag; i = i + 1) begin
                         if (station_busy[i] == 0) begin
                             station_calc_op_L1[i] <= calc_op_L1_in;
                             station_calc_op_L2[i] <= calc_op_L2_in;
@@ -99,7 +100,7 @@ module rs (
                             end
                             station_rob_id[i] <= new_rob_id_in;
                             station_busy[i] <= 1;
-                            station_size <= station_size + 1;
+                            break_flag = 1;
                         end
                     end
                 end
@@ -112,8 +113,9 @@ module rs (
                 break_flag = 0;
                 for (i = 0; i < RS_SIZE && !break_flag; i = i + 1) begin
                     if (station_busy[i] == 1) begin
-                        if (station_q1[i] == -1 && station_q2[i] == -1) begin
+                        if ((&station_q1[i]) && (&station_q2[i])) begin
                             station_busy[i] <= 0;
+                            station_size <= station_size + dec_valid - 1;
                             rs2alu_op_L1 <= station_calc_op_L1[i];
                             rs2alu_op_L2 <= station_calc_op_L2[i];
                             rs2alu_opr1 <= station_v1[i];

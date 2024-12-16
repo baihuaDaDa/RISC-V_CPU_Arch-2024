@@ -109,12 +109,14 @@ module dec (
     wire [`REG_NUM_WIDTH-1:0] rd = if_instr[11:7];
     wire [`REG_NUM_WIDTH-1:0] rs1 = if_instr[19:15];
     wire [`REG_NUM_WIDTH-1:0] rs2 = if_instr[24:20];
-    wire [31:0] imm_32_U = if_instr[31:12] << 12;
-    wire [31:0] imm_21_J = {if_instr[31], if_instr[19:12], if_instr[20], if_instr[30:21], 1'b0};
-    wire [31:0] imm_12_I = if_instr[31:20];  // except SRAI, SRLI, SLLI
-    wire [31:0] imm_5_shamt = if_instr[24:20];
-    wire [31:0] imm_13_B = {if_instr[31], if_instr[7], if_instr[30:25], if_instr[11:8], 1'b0};
-    wire [31:0] imm_12_S = {if_instr[31:25], if_instr[11:7]};
+    wire [31:0] imm_32_U = if_instr[31:12] << 12;  // upper
+    wire [31:0] imm_21_J = {
+        {12{if_instr[31]}}, if_instr[19:12], if_instr[20], if_instr[30:21], 1'b0
+    };
+    wire [31:0] imm_12_I = {{20{if_instr[31]}}, if_instr[31:20]};  // except SRAI, SRLI, SLLI
+    wire [31:0] imm_5_shamt = if_instr[24:20];  // unsigned
+    wire [31:0] imm_13_B = {{20{if_instr[31]}}, if_instr[7], if_instr[30:25], if_instr[11:8], 1'b0};
+    wire [31:0] imm_12_S = {{20{if_instr[31]}}, if_instr[31:25], if_instr[11:7]};
     wire [2:0] op_C = if_instr[15:13];
     wire [2:0] sub_op_C_L1 = if_instr[15:13];
     wire sub_op_C_L2 = if_instr[12];
@@ -130,9 +132,10 @@ module dec (
     wire [31:0] imm_C_ADDI4SPN = {
         if_instr[10:7], if_instr[12:11], if_instr[5], if_instr[6], 2'b00
     };  // uimm[5:4|9:6|2|3], for C.ADDI4SPN
-    wire [31:0] imm_C_I = {if_instr[12], if_instr[6:2]};  // for I-type
+    wire [31:0] imm_C_I = {{27{if_instr[12]}}, if_instr[6:2]};  // for I-type imm
+    wire [31:0] imm_C_UI = {if_instr[12], if_instr[6:2]};  // for unsigned I-type imm
     wire [31:0] imm_C_J = {
-        if_instr[12],
+        {21{if_instr[12]}},
         if_instr[8],
         if_instr[10:9],
         if_instr[6],
@@ -143,13 +146,13 @@ module dec (
         1'b0
     };  // imm[11|4|9:8|10|6|7|3:1|5], for C.JAL and C.J (J-type)
     wire [31:0] imm_C_ADDI16SP = {
-        if_instr[12], if_instr[4:3], if_instr[5], if_instr[2], if_instr[6], 4'b0000
+        {23{if_instr[12]}}, if_instr[4:3], if_instr[5], if_instr[2], if_instr[6], 4'b0000
     };  // imm[9], imm[4|6|8:7|5], for C.ADDI16SP
     wire [31:0] imm_C_LUI = {
-        if_instr[12], if_instr[6:2], 12'b0000_0000_0000
+        {15{if_instr[12]}}, if_instr[6:2], 12'b0000_0000_0000
     };  // imm[17], imm[16:12], for C.LUI
     wire [31:0] imm_C_B = {
-        if_instr[12], if_instr[6:5], if_instr[2], if_instr[11:10], if_instr[4:3], 1'b0
+        {24{if_instr[12]}}, if_instr[6:5], if_instr[2], if_instr[11:10], if_instr[4:3], 1'b0
     };  // imm[8|4:3], imm[7:6|2:1|5], for C.BEQZ, C.BNEZ (B-type)
     wire [31:0] imm_C_LWSP = {
         if_instr[3:2], if_instr[12], if_instr[6:4], 2'b00
@@ -171,13 +174,13 @@ module dec (
     wire [               31:0] value1;
     wire [               31:0] value2;
 
-    assign dependency1 = (rf_dependency1 == -1) ? -1 : (rob_is_found_1 ? -1 : rf_dependency1);
-    assign dependency2 = (rf_dependency2 == -1) ? -1 : (rob_is_found_2 ? -1 : rf_dependency2);
-    assign value1 = (rf_dependency1 == -1) ? rf_value1 : (rob_is_found_1 ? rob_value1 : 0);
-    assign value2 = (rf_dependency2 == -1) ? rf_value2 : (rob_is_found_2 ? rob_value2 : 0);
+    assign dependency1 = (&rf_dependency1) ? -1 : (rob_is_found_1 ? -1 : rf_dependency1);
+    assign dependency2 = (&rf_dependency2) ? -1 : (rob_is_found_2 ? -1 : rf_dependency2);
+    assign value1 = (&rf_dependency1) ? rf_value1 : (rob_is_found_1 ? rob_value1 : 0);
+    assign value2 = (&rf_dependency2) ? rf_value2 : (rob_is_found_2 ? rob_value2 : 0);
 
     always @(posedge clk_in) begin
-        if (rst_in) begin
+        if (rst_in !== 1'b0) begin
             dec2rob_ready <= 0;
             dec2rs_ready  <= 0;
             dec2lsb_ready <= 0;
@@ -190,7 +193,8 @@ module dec (
                 case (is_C)
                     2'b00: begin
                         case (sub_op_C_L1)
-                            3'b000: I_type(rs2_C_3, CALC_ADD_SUB, 0, imm_C_ADDI4SPN);  // C.ADDI4SPN
+                            3'b000:
+                            I_type(rs2_C_3, CALC_ADD_SUB, 0, imm_C_ADDI4SPN);  // C.ADDI4SPN
                             3'b010: load_type(rs2_C_3, MEM_LW, imm_C_LSW);  // C.LW
                             3'b110: S_type(MEM_SW, imm_C_LSW);  // C.SW
                         endcase
@@ -207,8 +211,8 @@ module dec (
                             end
                             3'b100: begin
                                 case (sub_op_C_L3)
-                                    2'b00: I_type(rs1_C_3, CALC_SRL_SRA, 0, imm_C_I);  // C.SRLI
-                                    2'b01: I_type(rs1_C_3, CALC_SRL_SRA, 1, imm_C_I);  // C.SRAI
+                                    2'b00: I_type(rs1_C_3, CALC_SRL_SRA, 0, imm_C_UI);  // C.SRLI
+                                    2'b01: I_type(rs1_C_3, CALC_SRL_SRA, 1, imm_C_UI);  // C.SRAI
                                     2'b10: I_type(rs1_C_3, CALC_AND, 0, imm_C_I);  // C.ANDI
                                     2'b11: begin
                                         case (sub_op_C_L4)
@@ -227,7 +231,7 @@ module dec (
                     end
                     2'b10: begin
                         case (sub_op_C_L1)
-                            3'b000: I_type(rs1_C_5, CALC_SLL, 0, imm_C_I);  // C.SLLI
+                            3'b000: I_type(rs1_C_5, CALC_SLL, 0, imm_C_UI);  // C.SLLI
                             3'b010: load_type(rs1_C_5, MEM_LW, imm_C_LWSP);  // C.LWSP
                             3'b100: begin
                                 case (sub_op_C_L2)

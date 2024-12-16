@@ -1,9 +1,9 @@
 // riscv top module file
 // modification allowed for debugging purposes
 
-`include "src/cpu.v"
-`include "src/hci.v"
-`include "src/common/block_ram/block_ram.v"
+// `include "src/cpu.v"
+// `include "src/hci.v"
+// `include "src/common/block_ram/block_ram.v"
 
 module riscv_top #(
     parameter SIM = 0  // whether in simulation

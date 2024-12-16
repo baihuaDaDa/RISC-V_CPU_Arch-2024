@@ -17,7 +17,8 @@ module icache(
     input if_valid,
     input [31:0] if_instr_addr,
 
-    output wire instr_ready_out,
+    output wire hit_out,
+    output wire miss_ready_out,
     output wire [31:0] instr_out
 );
 
@@ -49,11 +50,12 @@ module icache(
     assign hit_32 = if_valid &&
                     valid[index_16] && tag[index_16] == tag_in_16 && data[index_16][1:0] == 2'b11 &&
                     valid[index_32] && tag[index_32] == tag_in_32;
-    assign instr_ready_out = mem_valid || hit_32 || hit_16;
+    assign hit_out = hit_32 || hit_16;
+    assign miss_ready_out = mem_valid;
     assign instr_out = mem_valid ? mem_instr : hit_16 ? data[index_16] : hit_32 ? {data[index_32], data[index_16]} : 0;
 
     always @(posedge clk_in) begin
-        if (rst_in) begin
+        if (rst_in !== 1'b0) begin
             miss_out <= 0;
             for (i = 0; i < CACHE_LINE_SIZE; i = i + 1) begin
                 valid[i] <= 0;

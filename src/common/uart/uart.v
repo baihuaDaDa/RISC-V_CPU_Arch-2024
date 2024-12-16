@@ -25,10 +25,10 @@
 *  (serial) port.
 ***************************************************************************************************/
 
-`include "src/common/uart/uart_baud_clk.v"
-`include "src/common/uart/uart_rx.v"
-`include "src/common/uart/uart_tx.v"
-`include "src/common/fifo/fifo.v"
+// `include "src/common/uart/uart_baud_clk.v"
+// `include "src/common/uart/uart_rx.v"
+// `include "src/common/uart/uart_tx.v"
+// `include "src/common/fifo/fifo.v"
 
 module uart
 #(

@@ -27,8 +27,8 @@
 
 // modification allowed for debugging purposes
 
-`include "src/common/fifo/fifo.v"
-`include "src/common/uart/uart.v"
+// `include "src/common/fifo/fifo.v"
+// `include "src/common/uart/uart.v"
 
 module hci
 #(

@@ -6,7 +6,7 @@ module rob (
     input rst_in,
     input rdy_in,
 
-    input                           dec_valid,
+    input [                    3:0] dec_valid,
     input [ ROB_TYPE_NUM_WIDTH-1:0] dec_rob_type,
     input [     `REG_NUM_WIDTH-1:0] dec_dest,
     input [                   31:0] dec_value,
@@ -95,22 +95,22 @@ module rob (
     assign rear_next = (buffer_rear + 1) & ROB_SIZE;
     assign front = (buffer_head + 1) & ROB_SIZE;
 
-    assign value1_out = (dec_valid && rear_next == dec_dependency1) ? dec_value :
+    assign value1_out = (dec_valid[0] && rear_next == dec_dependency1) ? dec_value :
                     (alu_valid && alu_dependency == dec_dependency1) ? alu_value :
                     (mem_valid && mem_dependency == dec_dependency1) ? mem_value : buffer_value[dec_dependency1];
-    assign is_found_1_out = (dec_valid && rear_next == dec_dependency1 && dec_rob_state == ROB_STATE_WRITE_RESULT) ||
+    assign is_found_1_out = (dec_valid[0] && rear_next == dec_dependency1 && dec_rob_state == ROB_STATE_WRITE_RESULT) ||
                         (alu_valid && alu_dependency == dec_dependency1) ||
                         (mem_valid && mem_dependency == dec_dependency1) ||
                         (buffer_rob_state[dec_dependency1] == ROB_STATE_WRITE_RESULT);
-    assign value2_out = (dec_valid && rear_next == dec_dependency2) ? dec_value :
+    assign value2_out = (dec_valid[0] && rear_next == dec_dependency2) ? dec_value :
                     (alu_valid && alu_dependency == dec_dependency2) ? alu_value :
                     (mem_valid && mem_dependency == dec_dependency2) ? mem_value : buffer_value[dec_dependency2];
-    assign is_found_2_out = (dec_valid && rear_next == dec_dependency2 && dec_rob_state == ROB_STATE_WRITE_RESULT) ||
+    assign is_found_2_out = (dec_valid[0] && rear_next == dec_dependency2 && dec_rob_state == ROB_STATE_WRITE_RESULT) ||
                         (alu_valid && alu_dependency == dec_dependency2) ||
                         (mem_valid && mem_dependency == dec_dependency2) ||
                         (buffer_rob_state[dec_dependency2] == ROB_STATE_WRITE_RESULT);
-    assign buffer_full_out = (buffer_size + dec_valid == ROB_SIZE);
-    assign next_rob_id_out = (buffer_rear + 1 + dec_valid) & ROB_SIZE;
+    assign buffer_full_out = (buffer_size + dec_valid[0] == ROB_SIZE);
+    assign next_rob_id_out = (buffer_rear + 1 + dec_valid[0]) & ROB_SIZE;
 
     // TODO store相关指令可以让RoB提交的时候返还给LSB，由LSB直接写回给Memory，
     //      flush的时候不要清楚LSB中正在写回的store指令，这样可以有效避免RoB被访存指令阻塞。
@@ -137,7 +137,7 @@ module rob (
                 rob2pred_ready <= 0;
                 need_flush_out <= 0;
             end else begin
-                if (dec_valid) begin
+                if (dec_valid[0]) begin
                     buffer_rear <= rear_next;
                     buffer_rob_type[rear_next] <= dec_rob_type;
                     buffer_dest_reg[rear_next] <= dec_dest;
@@ -240,7 +240,7 @@ module rob (
                     endcase
                     if (!mem_busy || (buffer_rob_type[front] != ROB_TYPE_STORE_BYTE && buffer_rob_type[front] != ROB_TYPE_STORE_HALF && buffer_rob_type[front] != ROB_TYPE_STORE_WORD)) begin
                         buffer_head <= front;
-                        buffer_size <= buffer_size + dec_valid - 1;
+                        buffer_size <= buffer_size + dec_valid[0] - 1;
                     end
                 end
             end

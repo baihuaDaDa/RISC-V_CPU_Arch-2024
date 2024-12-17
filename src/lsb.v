@@ -5,7 +5,7 @@ module lsb (
     input rst_in,
     input rdy_in,
 
-    input                          dec_valid,
+    input [                   3:0] dec_valid,
     input [MEM_TYPE_NUM_WIDTH-1:0] dec_mem_type,
     input [                  31:0] dec_value1,
     input [                  31:0] dec_value2,
@@ -97,8 +97,8 @@ module lsb (
     assign sb_rear_next = (sb_rear + 1) & SB_SIZE;
     assign sb_ptr = (index + sb_head + 1) & SB_SIZE;
 
-    assign lb_full_out = (lb_size + (dec_valid && dec_mem_type <= 3'b100) == LB_SIZE);
-    assign sb_full_out = (sb_size + (dec_valid && dec_mem_type > 3'b100) - rob_pop_sb == SB_SIZE);
+    assign lb_full_out = (lb_size + (dec_valid[2] && dec_mem_type <= 3'b100) == LB_SIZE);
+    assign sb_full_out = (sb_size + (dec_valid[2] && dec_mem_type > 3'b100) - rob_pop_sb == SB_SIZE);
 
     always @(posedge clk_in) begin
         if (rst_in !== 1'b0) begin
@@ -126,7 +126,7 @@ module lsb (
                 lb2mem_ready <= 0;
                 sb2rob_ready <= 0;
             end else begin
-                if (dec_valid) begin
+                if (dec_valid[2]) begin
                     age_cnt <= age_cnt + 1;
                     if (dec_mem_type <= 3'b100) begin
                         break_flag = 0;
@@ -155,16 +155,44 @@ module lsb (
                     end
                 end
                 if (alu_valid) begin
-                    lb_update_dependency(alu_value, alu_dependency);
-                    sb_update_dependency(alu_value, alu_dependency);
+                    for (i = 0; i < LB_SIZE; i = i + 1) begin
+                        if (lb_busy[i] && lb_dependency1[i] == alu_dependency) begin
+                            lb_value1[i] <= alu_value;
+                            lb_dependency1[i] <= -1;
+                        end
+                    end
+                    for (index = 0; index < sb_size; index = index + 1) begin
+                        if (sb_dependency1[sb_ptr] == alu_dependency) begin
+                            sb_value1[sb_ptr] <= alu_value;
+                            sb_dependency1[sb_ptr] <= -1;
+                        end
+                        if (sb_dependency2[sb_ptr] == alu_dependency) begin
+                            sb_value2[sb_ptr] <= alu_value;
+                            sb_dependency2[sb_ptr] <= -1;
+                        end
+                    end
                 end
                 if (mem_valid) begin
-                    lb_update_dependency(mem_value, mem_dependency);
-                    sb_update_dependency(mem_value, mem_dependency);
+                    for (i = 0; i < LB_SIZE; i = i + 1) begin
+                        if (lb_busy[i] && lb_dependency1[i] == mem_dependency) begin
+                            lb_value1[i] <= mem_value;
+                            lb_dependency1[i] <= -1;
+                        end
+                    end
+                    for (index = 0; index < sb_size; index = index + 1) begin
+                        if (sb_dependency1[sb_ptr] == mem_dependency) begin
+                            sb_value1[sb_ptr] <= mem_value;
+                            sb_dependency1[sb_ptr] <= -1;
+                        end
+                        if (sb_dependency2[sb_ptr] == mem_dependency) begin
+                            sb_value2[sb_ptr] <= mem_value;
+                            sb_dependency2[sb_ptr] <= -1;
+                        end
+                    end
                 end
                 if (rob_pop_sb) begin
                     sb_head <= (sb_head + 1) & SB_SIZE;
-                    sb_size <= sb_size + (dec_valid && dec_mem_type > 3'b100) -1;
+                    sb_size <= sb_size + (dec_valid[2] && dec_mem_type > 3'b100) - 1;
                 end
                 if (sb_size && !rob_pop_sb && (&sb_dependency1[sb_front]) && (&sb_dependency2[sb_front])) begin
                     sb2rob_rob_id <= sb_rob_id[sb_front];
@@ -183,7 +211,7 @@ module lsb (
                             lb2mem_dependency <= lb_rob_id[i];
                             lb2mem_ready <= 1;
                             lb_busy[i] <= 0;
-                            lb_size <= lb_size + (dec_valid && dec_mem_type <= 3'b100) - 1;
+                            lb_size <= lb_size + (dec_valid[2] && dec_mem_type <= 3'b100) - 1;
                             break_flag = 1;
                         end
                     end
@@ -196,33 +224,5 @@ module lsb (
             end
         end
     end
-
-    task lb_update_dependency;
-        input [31:0] value;
-        input [`ROB_SIZE_WIDTH-1:0] dependency;
-
-        for (i = 0; i < LB_SIZE; i = i + 1) begin
-            if (lb_busy[i] && lb_dependency1[i] == dependency) begin
-                lb_value1[i] <= value;
-                lb_dependency1[i] <= -1;
-            end
-        end
-    endtask
-
-    task sb_update_dependency;
-        input [31:0] value;
-        input [`ROB_SIZE_WIDTH-1:0] dependency;
-
-        for (index = 0; index < sb_size; index = index + 1) begin
-            if (sb_dependency1[sb_ptr] == dependency) begin
-                sb_value1[sb_ptr] <= value;
-                sb_dependency1[sb_ptr] <= -1;
-            end
-            if (sb_dependency2[sb_ptr] == dependency) begin
-                sb_value2[sb_ptr] <= value;
-                sb_dependency2[sb_ptr] <= -1;
-            end
-        end
-    endtask
 
 endmodule

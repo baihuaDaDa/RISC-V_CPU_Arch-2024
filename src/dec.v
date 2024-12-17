@@ -15,11 +15,7 @@ module dec (
 
     output reg is_stall_out,
 
-    output reg dec2rob_ready,
-    output reg dec2rs_ready,
-    output reg dec2lsb_ready,
-    output reg dec2rf_ready,
-
+    output reg [                      3:0] dec_ready,         // [rf|lsb|rs|rob], 1 for ready
     output reg [  `ROB_TYPE_NUM_WIDTH-1:0] rob_type_out,
     output reg [       `REG_NUM_WIDTH-1:0] dest_out,          // for rob, rf
     output reg [                     31:0] result_value_out,
@@ -179,326 +175,384 @@ module dec (
     assign value1 = (&rf_dependency1) ? rf_value1 : (rob_is_found_1 ? rob_value1 : 0);
     assign value2 = (&rf_dependency2) ? rf_value2 : (rob_is_found_2 ? rob_value2 : 0);
 
+    reg [3:0] tmp_dec_ready;
+    reg [4:0] tmp_op;
+
+    always @(*) begin
+        if (tmp_dec_ready) begin
+            case (tmp_op)
+                OP_LUI, OP_AUIPC, OP_JAL: is_stall_out = rob_full;
+                OP_JALR, OP_BRANCH, OP_IMM, OP_REG: is_stall_out = rob_full || rs_full;
+                OP_LOAD: is_stall_out = rob_full || lb_full;
+                OP_STORE: is_stall_out = rob_full || sb_full;
+            endcase
+            if (is_stall_out) begin
+                dec_ready = 4'b0000;
+            end else begin
+                dec_ready = tmp_dec_ready;
+            end
+        end else begin
+            is_stall_out = 0;
+            dec_ready = 4'b0000;
+        end
+    end
+
     always @(posedge clk_in) begin
         if (rst_in !== 1'b0) begin
-            dec2rob_ready <= 0;
-            dec2rs_ready  <= 0;
-            dec2lsb_ready <= 0;
-            dec2rf_ready  <= 0;
-            is_stall_out  <= 0;
+            tmp_dec_ready <= 4'b0000;
         end else if (!rdy_in) begin
             /* do nothing */
         end else begin
             if (!need_flush_in && if_valid) begin
+                instr_addr_out <= if_instr_addr;
+                rob_id_out <= rob_next_rob_id;
+                jump_addr_out <= if_jump_addr;
+                is_jump_out <= if_is_jump;
+                // categorize
                 case (is_C)
                     2'b00: begin
                         case (sub_op_C_L1)
-                            3'b000:
-                            I_type(rs2_C_3, CALC_ADD_SUB, 0, imm_C_ADDI4SPN);  // C.ADDI4SPN
-                            3'b010: load_type(rs2_C_3, MEM_LW, imm_C_LSW);  // C.LW
-                            3'b110: S_type(MEM_SW, imm_C_LSW);  // C.SW
+                            3'b000: begin
+                                tmp_op <= OP_IMM;
+                                tmp_dec_ready <= 5'b1011;
+                                rob_type_out <= ROB_TYPE_REG;
+                                rob_state_out <= ROB_STATE_EXECUTE;
+                                dest_out <= rs2_C_3;
+                                calc_op_L1_out <= CALC_ADD_SUB;
+                                calc_op_L2_out <= 1'b0;
+                                dependency1_out <= dependency1;
+                                dependency2_out <= -1;
+                                value1_out <= value1;
+                                value2_out <= imm_C_ADDI4SPN;
+                            end  // C.ADDI4SPN
+                            3'b010: begin
+                                tmp_op <= OP_LOAD;
+                                tmp_dec_ready <= 5'b1101;
+                                rob_type_out <= ROB_TYPE_REG;
+                                rob_state_out <= ROB_STATE_EXECUTE;
+                                dest_out <= rs2_C_3;
+                                mem_type_out <= MEM_LW;
+                                dependency1_out <= dependency1;
+                                dependency2_out <= -1;
+                                value1_out <= value1;
+                                value2_out <= imm_C_LSW;
+                            end  // C.LW
+                            3'b110: begin
+                                tmp_op <= OP_STORE;
+                                tmp_dec_ready <= 5'b0101;
+                                rob_type_out <= sub_op;
+                                rob_state_out <= ROB_STATE_EXECUTE;
+                                mem_type_out <= MEM_SW;
+                                dependency1_out <= dependency1;
+                                dependency2_out <= dependency2;
+                                value1_out <= value1;
+                                value2_out <= value2;
+                                imm_out <= imm_C_LSW;
+                            end  // C.SW
                         endcase
                     end
                     2'b01: begin
                         case (sub_op_C_L1)
-                            3'b000: I_type(rs1_C_5, CALC_ADD_SUB, 0, imm_C_I);  // C.ADDI
-                            3'b001: U_J_type(1, OP_JAL, imm_C_J);  // C.JAL
-                            3'b010: I_type(rs1_C_5, CALC_ADD_SUB, 0, imm_C_I);  // C.LI
+                            3'b000, 3'b010: begin
+                                tmp_op <= OP_IMM;
+                                tmp_dec_ready <= 5'b1011;
+                                rob_type_out <= ROB_TYPE_REG;
+                                rob_state_out <= ROB_STATE_EXECUTE;
+                                dest_out <= rs1_C_5;
+                                calc_op_L1_out <= CALC_ADD_SUB;
+                                calc_op_L2_out <= 1'b0;
+                                dependency1_out <= dependency1;
+                                dependency2_out <= -1;
+                                value1_out <= value1;
+                                value2_out <= imm_C_I;
+                            end  // C.ADDI, C.LI
+                            3'b001: begin
+                                tmp_op <= OP_JAL;
+                                tmp_dec_ready <= 5'b1001;
+                                rob_type_out <= ROB_TYPE_REG;
+                                rob_state_out <= ROB_STATE_WRITE_RESULT;
+                                dest_out <= 1;
+                                result_value_out <= if_instr_addr + 4;  // TODO: +4?
+                            end  // C.JAL
                             3'b011: begin
-                                if (rs1_C_5 == 2)
-                                    I_type(2, CALC_ADD_SUB, 0, imm_C_ADDI16SP);  // C.ADDI16SP
-                                else U_J_type(rs1_C_5, OP_LUI, imm_C_LUI);  // C.LUI
+                                if (rs1_C_5 == 2) begin
+                                    tmp_op <= OP_IMM;
+                                    tmp_dec_ready <= 5'b1011;
+                                    rob_type_out <= ROB_TYPE_REG;
+                                    rob_state_out <= ROB_STATE_EXECUTE;
+                                    dest_out <= 2;
+                                    calc_op_L1_out <= CALC_ADD_SUB;
+                                    calc_op_L2_out <= 1'b0;
+                                    dependency1_out <= dependency1;
+                                    dependency2_out <= -1;
+                                    value1_out <= value1;
+                                    value2_out <= imm_C_ADDI16SP;
+                                end  // C.ADDI16SP
+                                else begin
+                                    tmp_op <= OP_LUI;
+                                    tmp_dec_ready <= 5'b1001;
+                                    rob_type_out <= ROB_TYPE_REG;
+                                    rob_state_out <= ROB_STATE_WRITE_RESULT;
+                                    dest_out <= rs1_C_5;
+                                    result_value_out <= imm_C_LUI;
+                                end  // C.LUI
                             end
                             3'b100: begin
                                 case (sub_op_C_L3)
-                                    2'b00: I_type(rs1_C_3, CALC_SRL_SRA, 0, imm_C_UI);  // C.SRLI
-                                    2'b01: I_type(rs1_C_3, CALC_SRL_SRA, 1, imm_C_UI);  // C.SRAI
-                                    2'b10: I_type(rs1_C_3, CALC_AND, 0, imm_C_I);  // C.ANDI
                                     2'b11: begin
+                                        tmp_op <= OP_REG;
+                                        tmp_dec_ready <= 4'b1011;
+                                        rob_type_out <= ROB_TYPE_REG;
+                                        rob_state_out <= ROB_STATE_EXECUTE;
+                                        dest_out <= rs1_C_3;
                                         case (sub_op_C_L4)
-                                            2'b00: R_type(rs1_C_3, CALC_ADD_SUB, 1);  // C.SUB
-                                            2'b01: R_type(rs1_C_3, CALC_XOR, 0);  // C.XOR
-                                            2'b10: R_type(rs1_C_3, CALC_OR, 0);  // C.OR
-                                            2'b11: R_type(rs1_C_3, CALC_AND, 0);  // C.AND
+                                            2'b00: calc_op_L1_out <= CALC_ADD_SUB;  // C.SUB
+                                            2'b01: calc_op_L1_out <= CALC_XOR;  // C.XOR
+                                            2'b10: calc_op_L1_out <= CALC_OR;  // C.OR
+                                            2'b11: calc_op_L1_out <= CALC_AND;  // C.AND
                                         endcase
+                                        calc_op_L2_out <= sub_op_C_L4 == 2'b00 ? 1'b1 : 1'b0;  // C.SUB 1
+                                        dependency1_out <= dependency1;
+                                        dependency2_out <= dependency2;
+                                        value1_out <= value1;
+                                        value2_out <= value2;
                                     end
+                                    default: begin
+                                        tmp_op <= OP_IMM;
+                                        tmp_dec_ready <= 5'b1011;
+                                        rob_type_out <= ROB_TYPE_REG;
+                                        rob_state_out <= ROB_STATE_EXECUTE;
+                                        dest_out <= rs1_C_3;
+                                        calc_op_L1_out <= sub_op_C_L3 == 2'b10 ? CALC_AND : CALC_SRL_SRA;
+                                        calc_op_L2_out <= sub_op_C_L3 == 2'b01 ? 1'b1 : 1'b0;  // C.SRAI 1
+                                        dependency1_out <= dependency1;
+                                        dependency2_out <= -1;
+                                        value1_out <= value1;
+                                        value2_out <= sub_op_C_L3 == 2'b10 ? imm_C_I : imm_C_UI;  // C.ANDI signed
+                                    end  // C.SRLI, C.SRAI, C.ANDI
                                 endcase
                             end
-                            3'b101: U_J_type(0, OP_JAL, imm_C_J);  // C.J
-                            3'b110: B_type(CALC_SEQ, 0);  // C.BEQZ
-                            3'b111: B_type(CALC_SNE, 0);  // C.BNEZ
+                            3'b101: begin
+                                tmp_op <= OP_JAL;
+                                tmp_dec_ready <= 5'b1001;
+                                rob_type_out <= ROB_TYPE_REG;
+                                rob_state_out <= ROB_STATE_WRITE_RESULT;
+                                dest_out <= 0;
+                                result_value_out <= if_instr_addr + 4;  // TODO: +4?
+                            end  // C.J
+                            3'b110: begin
+                                tmp_op <= OP_BRANCH;
+                                tmp_dec_ready <= 5'b0011;
+                                rob_type_out <= ROB_TYPE_BRANCH;
+                                rob_state_out <= ROB_STATE_EXECUTE;
+                                calc_op_L1_out <= CALC_SEQ;
+                                calc_op_L2_out <= 0;
+                                dependency1_out <= dependency1;
+                                dependency2_out <= dependency2;
+                                value1_out <= value1;
+                                value2_out <= value2;
+                            end  // C.BEQZ
+                            3'b111: begin
+                                tmp_op <= OP_BRANCH;
+                                tmp_dec_ready <= 5'b0011;
+                                rob_type_out <= ROB_TYPE_BRANCH;
+                                rob_state_out <= ROB_STATE_EXECUTE;
+                                calc_op_L1_out <= CALC_SNE;
+                                calc_op_L2_out <= 0;
+                                dependency1_out <= dependency1;
+                                dependency2_out <= dependency2;
+                                value1_out <= value1;
+                                value2_out <= value2;
+                            end  // C.BNEZ
                         endcase
                     end
                     2'b10: begin
                         case (sub_op_C_L1)
-                            3'b000: I_type(rs1_C_5, CALC_SLL, 0, imm_C_UI);  // C.SLLI
-                            3'b010: load_type(rs1_C_5, MEM_LW, imm_C_LWSP);  // C.LWSP
+                            3'b000: begin
+                                tmp_op <= OP_IMM;
+                                tmp_dec_ready <= 5'b1011;
+                                rob_type_out <= ROB_TYPE_REG;
+                                rob_state_out <= ROB_STATE_EXECUTE;
+                                dest_out <= rs1_C_5;
+                                calc_op_L1_out <= CALC_SLL;
+                                calc_op_L2_out <= 1'b0;
+                                dependency1_out <= dependency1;
+                                dependency2_out <= -1;
+                                value1_out <= value1;
+                                value2_out <= imm_C_UI;
+                            end  // C.SLLI
+                            3'b010: begin
+                                tmp_op <= OP_LOAD;
+                                tmp_dec_ready <= 5'b1101;
+                                rob_type_out <= ROB_TYPE_REG;
+                                rob_state_out <= ROB_STATE_EXECUTE;
+                                dest_out <= rs1_C_5;
+                                mem_type_out <= MEM_LW;
+                                dependency1_out <= dependency1;
+                                dependency2_out <= -1;
+                                value1_out <= value1;
+                                value2_out <= imm_C_LWSP;
+                            end  // C.LWSP
                             3'b100: begin
                                 case (sub_op_C_L2)
                                     1'b0: begin
-                                        if (rs2_C_5 == 0) jalr_type(0, 0);  // C.JR
-                                        else I_type(rs1_C_5, CALC_ADD_SUB, 0, 0);  // C.MV
+                                        if (rs2_C_5 == 0) begin
+                                            tmp_op <= OP_JALR;
+                                            tmp_dec_ready <= 5'b1011;
+                                            rob_type_out <= ROB_TYPE_JALR;
+                                            rob_state_out <= ROB_STATE_EXECUTE;
+                                            dest_out <= 0;
+                                            calc_op_L1_out <= CALC_ADD_SUB;
+                                            calc_op_L2_out <= 0;  // ADD
+                                            dependency1_out <= dependency1;
+                                            dependency2_out <= -1;
+                                            value1_out <= value1;
+                                            value2_out <= 0;
+                                        end  // C.JR
+                                        else begin
+                                            tmp_op <= OP_IMM;
+                                            tmp_dec_ready <= 5'b1011;
+                                            rob_type_out <= ROB_TYPE_REG;
+                                            rob_state_out <= ROB_STATE_EXECUTE;
+                                            dest_out <= rs1_C_5;
+                                            calc_op_L1_out <= CALC_ADD_SUB;
+                                            calc_op_L2_out <= 1'b0;
+                                            dependency1_out <= dependency1;
+                                            dependency2_out <= -1;
+                                            value1_out <= value1;
+                                            value2_out <= 0;
+                                        end  // C.MV
                                     end
                                     1'b1: begin
-                                        if (rs2_C_5 == 0) jalr_type(1, 0);  // C.JALR
-                                        else R_type(rs1_C_5, CALC_ADD_SUB, 0);  // C.ADD
+                                        if (rs2_C_5 == 0) begin
+                                            tmp_op <= OP_JALR;
+                                            tmp_dec_ready <= 5'b1011;
+                                            rob_type_out <= ROB_TYPE_JALR;
+                                            rob_state_out <= ROB_STATE_EXECUTE;
+                                            dest_out <= 1;
+                                            calc_op_L1_out <= CALC_ADD_SUB;
+                                            calc_op_L2_out <= 0;  // ADD
+                                            dependency1_out <= dependency1;
+                                            dependency2_out <= -1;
+                                            value1_out <= value1;
+                                            value2_out <= 0;
+                                        end  // C.JALR
+                                        else begin
+                                            tmp_op <= OP_REG;
+                                            tmp_dec_ready <= 4'b1011;
+                                            rob_type_out <= ROB_TYPE_REG;
+                                            rob_state_out <= ROB_STATE_EXECUTE;
+                                            dest_out <= rs1_C_5;
+                                            calc_op_L1_out <= CALC_ADD_SUB;
+                                            calc_op_L2_out <= 0;
+                                            dependency1_out <= dependency1;
+                                            dependency2_out <= dependency2;
+                                            value1_out <= value1;
+                                            value2_out <= value2;
+                                        end  // C.ADD
                                     end
                                 endcase
                             end
-                            3'b110: S_type(MEM_SW, imm_C_SWSP);  // C.SWSP
+                            3'b110: begin
+                                tmp_op <= OP_STORE;
+                                tmp_dec_ready <= 5'b0101;
+                                rob_type_out <= sub_op;
+                                rob_state_out <= ROB_STATE_EXECUTE;
+                                mem_type_out <= MEM_SW;
+                                dependency1_out <= dependency1;
+                                dependency2_out <= dependency2;
+                                value1_out <= value1;
+                                value2_out <= value2;
+                                imm_out <= imm_C_SWSP;
+                            end  // C.SWSP
                         endcase
                     end
                     2'b11: begin
+                        tmp_op   <= op;
+                        dest_out <= rd;
                         case (op)
-                            OP_LUI, OP_AUIPC, OP_JAL: U_J_type(rd, op, imm_32_U);
-                            OP_JALR: jalr_type(rd, imm_12_I);
-                            OP_BRANCH:
-                            B_type(
-                                sub_op == 3'b100 ? CALC_SLT : sub_op == 3'b110 ? CALC_SLTU : {1'b1, sub_op},
-                                0);  // SLT and SLTU already exist
-                            OP_LOAD: load_type(rd, {1'b0, sub_op}, imm_12_I);
-                            OP_STORE: S_type({1'b1, sub_op}, imm_12_S);
-                            OP_IMM:
-                            I_type(rd, {1'b0, sub_op}, (sub_op == 3'b101 ? calc_op_L2 : 1'b0),
-                                   (sub_op == 3'b101 || sub_op == 3'b001 ? imm_5_shamt : imm_12_I));  // I-type doesn't have SUBI
-                            OP_REG: R_type(rd, {1'b0, sub_op}, calc_op_L2);
+                            OP_LUI, OP_AUIPC, OP_JAL: begin
+                                tmp_dec_ready <= 5'b1001;
+                                rob_type_out  <= ROB_TYPE_REG;
+                                rob_state_out <= ROB_STATE_WRITE_RESULT;
+                                case (op)
+                                    OP_LUI:   result_value_out <= imm_32_U;
+                                    OP_AUIPC: result_value_out <= imm_32_U + if_instr_addr;
+                                    OP_JAL:   result_value_out <= if_instr_addr + 4;  // TODO: +4?
+                                endcase
+                            end
+                            OP_JALR: begin
+                                tmp_dec_ready <= 5'b1011;
+                                rob_type_out <= ROB_TYPE_JALR;
+                                rob_state_out <= ROB_STATE_EXECUTE;
+                                calc_op_L1_out <= CALC_ADD_SUB;
+                                calc_op_L2_out <= 0;  // ADD
+                                dependency1_out <= dependency1;
+                                dependency2_out <= -1;
+                                value1_out <= value1;
+                                value2_out <= imm_12_I;
+                            end
+                            OP_BRANCH: begin
+                                tmp_dec_ready <= 5'b0011;
+                                rob_type_out <= ROB_TYPE_BRANCH;
+                                rob_state_out <= ROB_STATE_EXECUTE;
+                                calc_op_L1_out <= sub_op == 3'b100 ? CALC_SLT : sub_op == 3'b110 ? CALC_SLTU : {1'b1, sub_op};
+                                calc_op_L2_out <= 0;
+                                dependency1_out <= dependency1;
+                                dependency2_out <= dependency2;
+                                value1_out <= value1;
+                                value2_out <= value2;
+                            end  // SLT and SLTU already exist
+                            OP_LOAD: begin
+                                tmp_dec_ready <= 5'b1101;
+                                rob_type_out <= ROB_TYPE_REG;
+                                rob_state_out <= ROB_STATE_EXECUTE;
+                                mem_type_out <= {1'b0, sub_op};
+                                dependency1_out <= dependency1;
+                                dependency2_out <= -1;
+                                value1_out <= value1;
+                                value2_out <= imm_12_I;
+                            end
+                            OP_STORE: begin
+                                tmp_dec_ready <= 5'b0101;
+                                rob_type_out <= sub_op;
+                                rob_state_out <= ROB_STATE_EXECUTE;
+                                mem_type_out <= {1'b1, sub_op};
+                                dependency1_out <= dependency1;
+                                dependency2_out <= dependency2;
+                                value1_out <= value1;
+                                value2_out <= value2;
+                                imm_out <= imm_12_S;
+                            end
+                            OP_IMM: begin
+                                tmp_dec_ready <= 5'b1011;
+                                rob_type_out <= ROB_TYPE_REG;
+                                rob_state_out <= ROB_STATE_EXECUTE;
+                                calc_op_L1_out <= {1'b0, sub_op};
+                                calc_op_L2_out <= (sub_op == 3'b101 ? calc_op_L2 : 1'b0);
+                                dependency1_out <= dependency1;
+                                dependency2_out <= -1;
+                                value1_out <= value1;
+                                value2_out <= (sub_op == 3'b101 || sub_op == 3'b001 ? imm_5_shamt : imm_12_I);  // I-type doesn't have SUBI
+                            end
+                            OP_REG: begin
+                                tmp_dec_ready <= 4'b1011;
+                                rob_type_out <= ROB_TYPE_REG;
+                                rob_state_out <= ROB_STATE_EXECUTE;
+                                calc_op_L1_out <= {1'b0, sub_op};
+                                calc_op_L2_out <= calc_op_L2;
+                                dependency1_out <= dependency1;
+                                dependency2_out <= dependency2;
+                                value1_out <= value1;
+                                value2_out <= value2;
+                            end
                         endcase
                     end
                 endcase
             end else begin
-                dec2rob_ready <= 0;
-                dec2rs_ready  <= 0;
-                dec2lsb_ready <= 0;
-                dec2rf_ready  <= 0;
-                is_stall_out  <= 0;
+                tmp_dec_ready <= 4'b0000;
             end
         end
     end
-
-    task U_J_type;
-        input [`REG_NUM_WIDTH-1:0] rd_U_J;
-        input [4:0] op_U_J;
-        input [31:0] imm_U_J;
-        begin
-            if (rob_full) begin
-                is_stall_out  <= 1;
-                dec2rob_ready <= 0;
-                dec2rf_ready  <= 0;
-            end else begin
-                is_stall_out <= 0;
-                dec2rob_ready <= 1;
-                dec2rf_ready <= 1;
-                rob_type_out <= ROB_TYPE_REG;
-                dest_out <= rd_U_J;
-                instr_addr_out <= if_instr_addr;
-                rob_state_out <= ROB_STATE_WRITE_RESULT;
-                rob_id_out <= rob_next_rob_id;
-                case (op_U_J)
-                    OP_LUI: begin
-                        result_value_out <= imm_U_J;
-                        is_jump_out <= if_is_jump;
-                    end
-                    OP_AUIPC: begin
-                        result_value_out <= imm_U_J;
-                        is_jump_out <= if_is_jump + if_instr_addr;
-                    end
-                    OP_JAL: begin
-                        result_value_out <= if_instr_addr + 4;
-                        is_jump_out <= 1;
-                        jump_addr_out <= if_jump_addr;
-                    end
-                endcase
-            end
-            dec2rs_ready  <= 0;
-            dec2lsb_ready <= 0;
-        end
-    endtask
-
-    task jalr_type;
-        input [`REG_NUM_WIDTH-1:0] rd_JALR;
-        input [31:0] imm_JALR;
-        begin
-            if (rob_full || rs_full) begin
-                is_stall_out  <= 1;
-                dec2rob_ready <= 0;
-                dec2rf_ready  <= 0;
-                dec2rs_ready  <= 0;
-            end else begin
-                is_stall_out <= 0;
-                dec2rob_ready <= 1;
-                dec2rf_ready <= 1;
-                dec2rs_ready <= 1;
-                rob_type_out <= ROB_TYPE_JALR;
-                dest_out <= rd_JALR;
-                instr_addr_out <= if_instr_addr;
-                jump_addr_out <= if_jump_addr;
-                rob_state_out <= ROB_STATE_EXECUTE;
-                is_jump_out <= 1;
-                rob_id_out <= rob_next_rob_id;
-                calc_op_L1_out <= CALC_ADD_SUB;
-                calc_op_L2_out <= 0;  // ADD
-                dependency1_out <= dependency1;
-                dependency2_out <= -1;
-                value1_out <= value1;
-                value2_out <= imm_JALR;
-            end
-            dec2lsb_ready <= 0;
-        end
-    endtask
-
-    task B_type;
-        input [`CALC_OP_L1_NUM_WIDTH-1:0] calc_op_L1_B;
-        input calc_op_L2_B;
-        begin
-            if (rob_full || rs_full) begin
-                is_stall_out  <= 1;
-                dec2rob_ready <= 0;
-                dec2rs_ready  <= 0;
-            end else begin
-                is_stall_out <= 0;
-                dec2rob_ready <= 1;
-                dec2rs_ready <= 1;
-                rob_type_out <= ROB_TYPE_BRANCH;
-                instr_addr_out <= if_instr_addr;
-                jump_addr_out <= if_jump_addr;
-                rob_state_out <= ROB_STATE_EXECUTE;
-                is_jump_out <= if_is_jump;
-                rob_id_out <= rob_next_rob_id;
-                calc_op_L1_out <= calc_op_L1_B;
-                calc_op_L2_out <= calc_op_L2_B;
-                dependency1_out <= dependency1;
-                dependency2_out <= dependency2;
-                value1_out <= value1;
-                value2_out <= value2;
-            end
-            dec2lsb_ready <= 0;
-            dec2rf_ready  <= 0;
-        end
-    endtask
-
-    task load_type;
-        input [`REG_NUM_WIDTH-1:0] rd_L;
-        input [`MEM_TYPE_NUM_WIDTH-1:0] mem_type_L;
-        input [31:0] imm_L;
-        begin
-            if (rob_full || lb_full) begin
-                is_stall_out  <= 1;
-                dec2rob_ready <= 0;
-                dec2rf_ready  <= 0;
-                dec2lsb_ready <= 0;
-            end else begin
-                is_stall_out <= 0;
-                dec2rob_ready <= 1;
-                dec2rf_ready <= 1;
-                dec2lsb_ready <= 1;
-                rob_type_out <= ROB_TYPE_REG;
-                dest_out <= rd_L;
-                instr_addr_out <= if_instr_addr;
-                rob_state_out <= ROB_STATE_EXECUTE;
-                is_jump_out <= 0;
-                rob_id_out <= rob_next_rob_id;
-                mem_type_out <= mem_type_L;
-                dependency1_out <= dependency1;
-                dependency2_out <= -1;
-                value1_out <= value1;
-                value2_out <= imm_L;
-            end
-            dec2rs_ready <= 0;
-        end
-    endtask
-
-    task S_type;
-        input [`MEM_TYPE_NUM_WIDTH-1:0] mem_type_S;
-        input [31:0] imm_S;
-        begin
-            if (rob_full || sb_full) begin
-                is_stall_out  <= 1;
-                dec2rob_ready <= 0;
-                dec2lsb_ready <= 0;
-            end else begin
-                is_stall_out <= 0;
-                dec2rob_ready <= 1;
-                dec2lsb_ready <= 1;
-                rob_type_out <= mem_type_S[`ROB_TYPE_NUM_WIDTH-1:0];
-                instr_addr_out <= if_instr_addr;
-                rob_state_out <= ROB_STATE_EXECUTE;
-                is_jump_out <= 0;
-                mem_type_out <= mem_type_S;
-                rob_id_out <= rob_next_rob_id;
-                dependency1_out <= dependency1;
-                dependency2_out <= dependency2;
-                value1_out <= value1;
-                value2_out <= value2;
-                imm_out <= imm_S;
-            end
-            dec2rf_ready <= 0;
-            dec2rs_ready <= 0;
-        end
-    endtask
-
-    task I_type;
-        input [`REG_NUM_WIDTH-1:0] rd_I;
-        input [`CALC_OP_L1_NUM_WIDTH-1:0] calc_op_L1_I;
-        input calc_op_L2_I;
-        input [31:0] imm_I;
-        begin
-            if (rob_full || rs_full) begin
-                is_stall_out  <= 1;
-                dec2rob_ready <= 0;
-                dec2rf_ready  <= 0;
-                dec2rs_ready  <= 0;
-            end else begin
-                is_stall_out <= 0;
-                dec2rob_ready <= 1;
-                dec2rf_ready <= 1;
-                dec2rs_ready <= 1;
-                rob_type_out <= ROB_TYPE_REG;
-                dest_out <= rd_I;
-                instr_addr_out <= if_instr_addr;
-                rob_state_out <= ROB_STATE_EXECUTE;
-                is_jump_out <= 0;
-                rob_id_out <= rob_next_rob_id;
-                calc_op_L1_out <= calc_op_L1_I;
-                calc_op_L2_out <= calc_op_L2_I;
-                dependency1_out <= dependency1;
-                dependency2_out <= -1;
-                value1_out <= value1;
-                value2_out <= imm_I;
-            end
-            dec2lsb_ready <= 0;
-        end
-    endtask
-
-    task R_type;
-        input [`REG_NUM_WIDTH-1:0] rd_R;
-        input [`CALC_OP_L1_NUM_WIDTH-1:0] calc_op_L1_R;
-        input calc_op_L2_R;
-        begin
-            if (rob_full || rs_full) begin
-                is_stall_out  <= 1;
-                dec2rob_ready <= 0;
-                dec2rf_ready  <= 0;
-                dec2rs_ready  <= 0;
-            end else begin
-                is_stall_out <= 0;
-                dec2rob_ready <= 1;
-                dec2rf_ready <= 1;
-                dec2rs_ready <= 1;
-                rob_type_out <= ROB_TYPE_REG;
-                dest_out <= rd_R;
-                instr_addr_out <= if_instr_addr;
-                rob_state_out <= ROB_STATE_EXECUTE;
-                is_jump_out <= 0;
-                rob_id_out <= rob_next_rob_id;
-                calc_op_L1_out <= calc_op_L1_R;
-                calc_op_L2_out <= calc_op_L2_R;
-                dependency1_out <= dependency1;
-                dependency2_out <= dependency2;
-                value1_out <= value1;
-                value2_out <= value2;
-            end
-            dec2lsb_ready <= 0;
-        end
-    endtask
 
 endmodule

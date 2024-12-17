@@ -16,7 +16,7 @@ module rs (
     input [               31:0] mem_value,
     input [`ROB_SIZE_WIDTH-1:0] mem_dependency,
 
-    input                            dec_valid,
+    input [                     3:0] dec_valid,
     input [CALC_OP_L1_NUM_WIDTH-1:0] calc_op_L1_in,
     input                            calc_op_L2_in,
     input [                    31:0] value1_in,
@@ -50,7 +50,7 @@ module rs (
     reg                                   station_busy                [RS_SIZE-1:0];
     reg        [         RS_SIZE_WIDTH:0] station_size;  // 多一位
 
-    assign station_full_out = (station_size + dec_valid) == RS_SIZE;
+    assign station_full_out = (station_size + dec_valid[1]) == RS_SIZE;
 
     reg     break_flag;
     integer i;
@@ -72,7 +72,7 @@ module rs (
                 station_size <= 0;
                 rs2alu_ready <= 0;
             end else begin
-                if (dec_valid) begin
+                if (dec_valid[1]) begin
                     break_flag = 0;
                     for (i = 0; i < RS_SIZE && !break_flag; i = i + 1) begin
                         if (station_busy[i] == 0) begin
@@ -99,23 +99,45 @@ module rs (
                                 station_v2[i] <= value2_in;
                             end
                             station_rob_id[i] <= new_rob_id_in;
-                            station_busy[i] <= 1;
+                            station_busy[i]   <= 1;
                             break_flag = 1;
                         end
                     end
                 end
                 if (alu_valid) begin
-                    update_dependency(alu_value, alu_dependency);
+                    for (i = 0; i < RS_SIZE; i = i + 1) begin
+                        if (station_busy[i] == 1) begin
+                            if (station_q1[i] == alu_dependency) begin
+                                station_v1[i] <= alu_value;
+                                station_q1[i] <= -1;
+                            end
+                            if (station_q2[i] == alu_dependency) begin
+                                station_v2[i] <= alu_value;
+                                station_q2[i] <= -1;
+                            end
+                        end
+                    end
                 end
                 if (mem_valid) begin
-                    update_dependency(mem_value, mem_dependency);
+                    for (i = 0; i < RS_SIZE; i = i + 1) begin
+                        if (station_busy[i] == 1) begin
+                            if (station_q1[i] == mem_dependency) begin
+                                station_v1[i] <= mem_value;
+                                station_q1[i] <= -1;
+                            end
+                            if (station_q2[i] == mem_dependency) begin
+                                station_v2[i] <= mem_value;
+                                station_q2[i] <= -1;
+                            end
+                        end
+                    end
                 end
                 break_flag = 0;
                 for (i = 0; i < RS_SIZE && !break_flag; i = i + 1) begin
                     if (station_busy[i] == 1) begin
                         if ((&station_q1[i]) && (&station_q2[i])) begin
                             station_busy[i] <= 0;
-                            station_size <= station_size + dec_valid - 1;
+                            station_size <= station_size + dec_valid[1] - 1;
                             rs2alu_op_L1 <= station_calc_op_L1[i];
                             rs2alu_op_L2 <= station_calc_op_L2[i];
                             rs2alu_opr1 <= station_v1[i];
@@ -129,23 +151,5 @@ module rs (
             end
         end
     end
-
-    task update_dependency;
-        input [31:0] value;
-        input [`ROB_SIZE_WIDTH-1:0] dependency;
-
-        for (i = 0; i < RS_SIZE; i = i + 1) begin
-            if (station_busy[i] == 1) begin
-                if (station_q1[i] == dependency) begin
-                    station_v1[i] <= value;
-                    station_q1[i] <= -1;
-                end
-                if (station_q2[i] == dependency) begin
-                    station_v2[i] <= value;
-                    station_q2[i] <= -1;
-                end
-            end
-        end
-    endtask
 
 endmodule

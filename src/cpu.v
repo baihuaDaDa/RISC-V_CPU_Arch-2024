@@ -57,10 +57,7 @@ module cpu (
 
     // dec
     wire                             dec_is_stall;
-    wire                             dec2rob_ready;
-    wire                             dec2rs_ready;
-    wire                             dec2lsb_ready;
-    wire                             dec2rf_ready;
+    wire [                      3:0] dec_ready;
     wire [  `ROB_TYPE_NUM_WIDTH-1:0] dec_rob_type;
     wire [       `REG_NUM_WIDTH-1:0] dec_dest;  // for rob, rf
     wire [                     31:0] dec_result_value;
@@ -131,7 +128,7 @@ module cpu (
     // icache
     wire                             ic2mem_miss;
     wire [                     31:0] ic2mem_instr_addr;
-    wire ic2if_hit;
+    wire                             ic2if_hit;
     wire                             ic2if_miss_ready;
     wire [                     31:0] ic2if_instr;
 
@@ -164,7 +161,7 @@ module cpu (
         // combinatorial logic
         .pred_is_jump     (pred2if_result),
         .ic_hit           (ic2if_hit),
-        .ic_miss_ready         (ic2if_miss_ready),
+        .ic_miss_ready    (ic2if_miss_ready),
         .ic_instr         (ic2if_instr),
         .rf_value_jalr    (rf_value_jalr),
         .fetch_enable_out (if2ic_fetch_enable),
@@ -195,10 +192,7 @@ module cpu (
         .if_jump_addr    (if2dec_jump_addr),
         .need_flush_in   (rob_need_flush),
         .is_stall_out    (dec_is_stall),
-        .dec2rob_ready   (dec2rob_ready),
-        .dec2rs_ready    (dec2rs_ready),
-        .dec2lsb_ready   (dec2lsb_ready),
-        .dec2rf_ready    (dec2rf_ready),
+        .dec_ready       (dec_ready),
         .rob_type_out    (dec_rob_type),
         .dest_out        (dec_dest),
         .result_value_out(dec_result_value),
@@ -237,7 +231,7 @@ module cpu (
         .clk_in         (clk_in),
         .rst_in         (rst_in),
         .rdy_in         (rdy_in),
-        .dec_valid      (dec2rob_ready),
+        .dec_valid      (dec_ready),
         .dec_rob_type   (dec_rob_type),
         .dec_dest       (dec_dest),
         .dec_value      (dec_result_value),
@@ -284,7 +278,7 @@ module cpu (
         .clk_in           (clk_in),
         .rst_in           (rst_in),
         .rdy_in           (rdy_in),
-        .dec_valid        (dec2lsb_ready),
+        .dec_valid        (dec_ready),
         .dec_mem_type     (dec_mem_type),
         .dec_value1       (dec_value1),
         .dec_value2       (dec_value2),
@@ -325,7 +319,7 @@ module cpu (
         .mem_valid        (mem_dout_ready),
         .mem_value        (mem_out),
         .mem_dependency   (mem_dependency),
-        .dec_valid        (dec2rs_ready),
+        .dec_valid        (dec_ready),
         .calc_op_L1_in    (dec_calc_op_L1),
         .calc_op_L2_in    (dec_calc_op_L2),
         .value1_in        (dec_value1),
@@ -360,20 +354,20 @@ module cpu (
     );
 
     icache icache0 (
-        .clk_in         (clk_in),
-        .rst_in         (rst_in),
-        .rdy_in         (rdy_in),
-        .mem_busy       (mem_busy),
-        .mem_valid      (mem_iout_ready),
-        .mem_instr      (mem_out),
-        .miss_out       (ic2mem_miss),
-        .instr_addr_out (ic2mem_instr_addr),
+        .clk_in        (clk_in),
+        .rst_in        (rst_in),
+        .rdy_in        (rdy_in),
+        .mem_busy      (mem_busy),
+        .mem_valid     (mem_iout_ready),
+        .mem_instr     (mem_out),
+        .miss_out      (ic2mem_miss),
+        .instr_addr_out(ic2mem_instr_addr),
         // combinatorial logic
-        .if_valid       (if2ic_fetch_enable),
-        .if_instr_addr  (if_pc),
-        .hit_out(ic2if_hit),
+        .if_valid      (if2ic_fetch_enable),
+        .if_instr_addr (if_pc),
+        .hit_out       (ic2if_hit),
         .miss_ready_out(ic2if_miss_ready),
-        .instr_out      (ic2if_instr)
+        .instr_out     (ic2if_instr)
     );
 
     mem_controller mem0 (
@@ -412,7 +406,7 @@ module cpu (
         .rob_rd         (rob_rd),
         .rob_value      (rob_value),
         .rob_dependency (rob_dependency),
-        .dec_valid      (dec2rf_ready),
+        .dec_valid      (dec_ready),
         .dec_rd         (dec_dest),
         .dec_dependency (dec_rob_id),
         // combinatorial logic

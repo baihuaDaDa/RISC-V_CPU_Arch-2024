@@ -12,7 +12,7 @@ module rf (
     input [               31:0] rob_value,
     input [`ROB_SIZE_WIDTH-1:0] rob_dependency,
 
-    input                       dec_valid,
+    input [                3:0] dec_valid,
     input [  REG_NUM_WIDTH-1:0] dec_rd,
     input [`ROB_SIZE_WIDTH-1:0] dec_dependency,
 
@@ -37,10 +37,10 @@ module rf (
 
     assign value1_out = (rob_valid && rob_rd == dec_rs1) ? rob_value : regs[dec_rs1];
     assign value2_out = (rob_valid && rob_rd == dec_rs2) ? rob_value : regs[dec_rs2];
-    assign dependency1_out = (dec_valid && dec_rd == dec_rs1) ? dec_dependency :
+    assign dependency1_out = (dec_valid[3] && dec_rd == dec_rs1) ? dec_dependency :
                          (rob_valid && rob_rd == dec_rs1 && rob_dependency == reg_dependency[dec_rs1]) ? -1 :
                          reg_dependency[dec_rs1];
-    assign dependency2_out = (dec_valid && dec_rd == dec_rs2) ? dec_dependency :
+    assign dependency2_out = (dec_valid[3] && dec_rd == dec_rs2) ? dec_dependency :
                          (rob_valid && rob_rd == dec_rs2 && rob_dependency == reg_dependency[dec_rs1]) ? -1 :
                          reg_dependency[dec_rs2];
     assign value_jalr_out = regs[if_rs_jalr];
@@ -60,7 +60,7 @@ module rf (
                         reg_dependency[rob_rd] <= -1;
                     end
                 end
-                if (dec_valid && dec_rd) begin
+                if (dec_valid[3] && dec_rd) begin
                     regs[dec_rd] <= regs[dec_dependency];
                 end
             end

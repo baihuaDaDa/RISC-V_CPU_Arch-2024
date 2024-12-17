@@ -100,6 +100,15 @@ module lsb (
     assign lb_full_out = (lb_size + (dec_valid[2] && dec_mem_type <= 3'b100) == LB_SIZE);
     assign sb_full_out = (sb_size + (dec_valid[2] && dec_mem_type > 3'b100) - rob_pop_sb == SB_SIZE);
 
+    /* debug */
+    wire [               31:0] sb_top_value1 = sb_value1[sb_front];
+    wire [               31:0] sb_top_value2 = sb_value2[sb_front];
+    wire [`ROB_SIZE_WIDTH-1:0] sb_top_dependency1 = sb_dependency1[sb_front];
+    wire [`ROB_SIZE_WIDTH-1:0] sb_top_dependency2 = sb_dependency2[sb_front];
+    wire [               31:0] sb_top_imm = sb_imm[sb_front];
+    wire [`ROB_SIZE_WIDTH-1:0] sb_top_rob_id = sb_rob_id[sb_front];
+    wire [               31:0] sb_top_age = sb_age[sb_front];
+
     always @(posedge clk_in) begin
         if (rst_in !== 1'b0) begin
             for (i = 0; i < LB_SIZE; i = i + 1) begin
@@ -192,7 +201,6 @@ module lsb (
                 end
                 if (rob_pop_sb) begin
                     sb_head <= (sb_head + 1) & SB_SIZE;
-                    sb_size <= sb_size + (dec_valid[2] && dec_mem_type > 3'b100) - 1;
                 end
                 if (sb_size && !rob_pop_sb && (&sb_dependency1[sb_front]) && (&sb_dependency2[sb_front])) begin
                     sb2rob_rob_id <= sb_rob_id[sb_front];
@@ -211,16 +219,15 @@ module lsb (
                             lb2mem_dependency <= lb_rob_id[i];
                             lb2mem_ready <= 1;
                             lb_busy[i] <= 0;
-                            lb_size <= lb_size + (dec_valid[2] && dec_mem_type <= 3'b100) - 1;
                             break_flag = 1;
                         end
                     end
-                    if (!break_flag) begin
-                        lb2mem_ready <= 0;
-                    end
+                    lb2mem_ready <= break_flag;
                 end else begin
                     lb2mem_ready <= 0;
                 end
+                lb_size <= lb_size + (dec_valid[2] && dec_mem_type <= 3'b100) - break_flag;
+                sb_size <= sb_size + (dec_valid[2] && dec_mem_type > 3'b100) - rob_pop_sb;
             end
         end
     end

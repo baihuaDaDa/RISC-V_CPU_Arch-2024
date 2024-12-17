@@ -35,6 +35,10 @@ module rf (
     reg     [`ROB_SIZE_WIDTH-1:0] reg_dependency[REG_NUM-1:0];
     integer                       i;
 
+    /* debug */
+    wire [31:0] ra = regs[1];
+    wire [`ROB_SIZE_WIDTH-1:0] ra_d = reg_dependency[1];
+
     assign value1_out = (rob_valid && rob_rd == dec_rs1) ? rob_value : regs[dec_rs1];
     assign value2_out = (rob_valid && rob_rd == dec_rs2) ? rob_value : regs[dec_rs2];
     assign dependency1_out = (dec_valid[3] && dec_rd == dec_rs1) ? dec_dependency :
@@ -69,9 +73,9 @@ module rf (
 
     task flush;
         begin
-            regs[0] <= 0;
             for (i = 0; i < REG_NUM; i++) begin
                 reg_dependency[i] <= -1;
+                regs[i] <= 0;
             end
         end
     endtask

@@ -137,7 +137,6 @@ module rs (
                     if (station_busy[i] == 1) begin
                         if ((&station_q1[i]) && (&station_q2[i])) begin
                             station_busy[i] <= 0;
-                            station_size <= station_size + dec_valid[1] - 1;
                             rs2alu_op_L1 <= station_calc_op_L1[i];
                             rs2alu_op_L2 <= station_calc_op_L2[i];
                             rs2alu_opr1 <= station_v1[i];
@@ -148,6 +147,7 @@ module rs (
                     end
                 end
                 rs2alu_ready <= break_flag;
+                station_size <= station_size + dec_valid[1] - break_flag;
             end
         end
     end

@@ -112,6 +112,16 @@ module rob (
     assign buffer_full_out = (buffer_size + dec_valid[0] == ROB_SIZE);
     assign next_rob_id_out = (buffer_rear + 1 + dec_valid[0]) & ROB_SIZE;
 
+    /* debug */
+    wire [ROB_TYPE_NUM_WIDTH-1:0] top_rob_type = buffer_rob_type[front];
+    wire [`REG_NUM_WIDTH-1:0] top_dest_reg = buffer_dest_reg[front];
+    wire [31:0] top_dest_mem = buffer_dest_mem[front];
+    wire [31:0] top_value = buffer_value[front];
+    wire [31:0] top_instr_addr = buffer_instr_addr[front];
+    wire [31:0] top_jump_addr = buffer_jump_addr[front];
+    wire [ROB_STATE_NUM_WIDTH-1:0] top_rob_state = buffer_rob_state[front];
+    wire top_is_jump = buffer_is_jump[front];
+
     // TODO store相关指令可以让RoB提交的时候返还给LSB，由LSB直接写回给Memory，
     //      flush的时候不要清楚LSB中正在写回的store指令，这样可以有效避免RoB被访存指令阻塞。
     always @(posedge clk_in) begin
@@ -160,7 +170,7 @@ module rob (
                     buffer_value[lsb_rob_id] <= lsb_value;
                     buffer_rob_state[lsb_rob_id] <= ROB_STATE_WRITE_RESULT;
                 end
-                if (buffer_rob_state[front] == ROB_STATE_WRITE_RESULT) begin
+                if (buffer_size && buffer_rob_state[front] == ROB_STATE_WRITE_RESULT) begin
                     case (buffer_rob_type[front])
                         ROB_TYPE_REG: begin
                             rd_out <= buffer_dest_reg[front];
@@ -187,41 +197,20 @@ module rob (
                                 need_flush_out <= 0;
                             end
                         end
-                        ROB_TYPE_STORE_BYTE: begin
+                        ROB_TYPE_STORE_BYTE, ROB_TYPE_STORE_HALF, ROB_TYPE_STORE_WORD: begin
                             if (!mem_busy) begin
-                                store_type_out <= STORE_BYTE;
+                                store_type_out <= buffer_rob_type[front][1:0];
                                 data_addr_out <= buffer_dest_mem[front];
                                 value_out <= buffer_value[front];
                                 rob2mem_ready <= 1;
                                 rob2lsb_pop_sb <= 1;
-                                rob2rf_ready <= 0;
-                                rob2pred_ready <= 0;
-                                need_flush_out <= 0;
+                            end else begin
+                                rob2mem_ready  <= 0;
+                                rob2lsb_pop_sb <= 0;
                             end
-                        end
-                        ROB_TYPE_STORE_HALF: begin
-                            if (!mem_busy) begin
-                                store_type_out <= STORE_HALF;
-                                data_addr_out <= buffer_dest_mem[front];
-                                value_out <= buffer_value[front];
-                                rob2mem_ready <= 1;
-                                rob2lsb_pop_sb <= 1;
-                                rob2rf_ready <= 0;
-                                rob2pred_ready <= 0;
-                                need_flush_out <= 0;
-                            end
-                        end
-                        ROB_TYPE_STORE_WORD: begin
-                            if (!mem_busy) begin
-                                store_type_out <= STORE_WORD;
-                                data_addr_out <= buffer_dest_mem[front];
-                                value_out <= buffer_value[front];
-                                rob2mem_ready <= 1;
-                                rob2lsb_pop_sb <= 1;
-                                rob2rf_ready <= 0;
-                                rob2pred_ready <= 0;
-                                need_flush_out <= 0;
-                            end
+                            rob2rf_ready   <= 0;
+                            rob2pred_ready <= 0;
+                            need_flush_out <= 0;
                         end
                         ROB_TYPE_BRANCH: begin
                             instr_addr_out <= buffer_instr_addr[front];
@@ -241,7 +230,16 @@ module rob (
                     if (!mem_busy || (buffer_rob_type[front] != ROB_TYPE_STORE_BYTE && buffer_rob_type[front] != ROB_TYPE_STORE_HALF && buffer_rob_type[front] != ROB_TYPE_STORE_WORD)) begin
                         buffer_head <= front;
                         buffer_size <= buffer_size + dec_valid[0] - 1;
+                    end else begin
+                        buffer_size <= buffer_size + dec_valid[0];
                     end
+                end else begin
+                    buffer_size <= buffer_size + dec_valid[0];
+                    rob2rf_ready <= 0;
+                    rob2mem_ready <= 0;
+                    rob2lsb_pop_sb <= 0;
+                    rob2pred_ready <= 0;
+                    need_flush_out <= 0;
                 end
             end
         end

@@ -84,8 +84,8 @@ module mem_controller (
     assign cur_din = work_cycle == 3'b000 ? rob_din : tmp_din;
     assign cur_ain = work_cycle == 3'b000 ? wire_ain : tmp_ain;
     assign cur_wr = work_cycle == 3'b000 ? rob_valid : tmp_wr;
-    assign out = work_time == 2'b00 ? (tmp_is_unsigned ? {{24{byte_dout[7]}}, byte_dout} : byte_dout) :
-                 work_time == 2'b01 ? (tmp_is_unsigned && !tmp_is_instr ? {{16{byte_dout[7]}}, byte_dout, tmp_result[7:0]} : {{16{1'b0}}, byte_dout, tmp_result[7:0]}) :
+    assign out = work_time == 2'b00 ? (!tmp_is_unsigned ? {{24{byte_dout[7]}}, byte_dout} : byte_dout) :
+                 work_time == 2'b01 ? (!tmp_is_unsigned && !tmp_is_instr ? {{16{byte_dout[7]}}, byte_dout, tmp_result[7:0]} : {{16{1'b0}}, byte_dout, tmp_result[7:0]}) :
                  {byte_dout, tmp_result[23:0]};
     assign busy_out = cur_working;
 
@@ -128,7 +128,7 @@ module mem_controller (
                         tmp_lsb_dependency <= lsb_dependency;
                         tmp_wr <= rob_valid;
                         tmp_is_unsigned <= lsb_load_type[2];
-                        tmp_is_instr <= ic_valid;
+                        tmp_is_instr <= ic_valid && !lsb_valid && !rob_valid;
                     end
                     case (work_cycle)
                         3'b000: begin

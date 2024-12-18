@@ -67,8 +67,8 @@ module cpu (
     wire                             dec_is_jump;
     wire [`CALC_OP_L1_NUM_WIDTH-1:0] dec_calc_op_L1;  // for rs
     wire                             dec_calc_op_L2;  // for rs
-    wire [      `ROB_SIZE_WIDTH-1:0] dec_dependency1;
-    wire [      `ROB_SIZE_WIDTH-1:0] dec_dependency2;
+    wire [        `ROB_SIZE_WIDTH:0] dec_dependency1;
+    wire [        `ROB_SIZE_WIDTH:0] dec_dependency2;
     wire [                     31:0] dec_value1;
     wire [                     31:0] dec_value2;
     wire [                     31:0] dec_imm;  // for lsb (store)
@@ -86,7 +86,7 @@ module cpu (
 
     wire [       `REG_NUM_WIDTH-1:0] rob_rd;  // for rf
     wire [                     31:0] rob_value;  // for rf and mem
-    wire [      `ROB_SIZE_WIDTH-1:0] rob_dependency;  // for rf
+    wire [        `ROB_SIZE_WIDTH:0] rob_dependency;  // for rf
     wire [`STORE_TYPE_NUM_WIDTH-1:0] rob_store_type;  // for mem
     wire [                     31:0] rob_data_addr;  // for mem
     wire [                     31:0] rob_jump_addr;  // for if, valid only if need_flush_out is high
@@ -103,7 +103,7 @@ module cpu (
     wire                             lb2mem_ready;
     wire [ `LOAD_TYPE_NUM_WIDTH-1:0] lb2mem_load_type;
     wire [                     31:0] lb2mem_addr;
-    wire [      `ROB_SIZE_WIDTH-1:0] lb2mem_dependency;
+    wire [        `ROB_SIZE_WIDTH:0] lb2mem_dependency;
     wire                             sb2rob_ready;
     wire [      `ROB_SIZE_WIDTH-1:0] sb2rob_rob_id;
     wire [                     31:0] sb2rob_dest;
@@ -117,13 +117,13 @@ module cpu (
     wire                             rs2alu_op_L2;
     wire [                     31:0] rs2alu_opr1;
     wire [                     31:0] rs2alu_opr2;
-    wire [      `ROB_SIZE_WIDTH-1:0] rs2alu_dependency;
+    wire [        `ROB_SIZE_WIDTH:0] rs2alu_dependency;
     wire                             rs_full;
 
     // alu
     wire                             alu_ready;
     wire [                     31:0] alu_value;
-    wire [      `ROB_SIZE_WIDTH-1:0] alu_dependency;
+    wire [        `ROB_SIZE_WIDTH:0] alu_dependency;
 
     // icache
     wire                             ic2mem_miss;
@@ -137,13 +137,13 @@ module cpu (
     wire                             mem_dout_ready;
     wire                             mem_iout_ready;
     wire [                     31:0] mem_out;
-    wire [      `ROB_SIZE_WIDTH-1:0] mem_dependency;
+    wire [        `ROB_SIZE_WIDTH:0] mem_dependency;
 
     // rf
     wire [                     31:0] rf_value1;
     wire [                     31:0] rf_value2;
-    wire [      `ROB_SIZE_WIDTH-1:0] rf_dependency1;
-    wire [      `ROB_SIZE_WIDTH-1:0] rf_dependency2;
+    wire [        `ROB_SIZE_WIDTH:0] rf_dependency1;
+    wire [        `ROB_SIZE_WIDTH:0] rf_dependency2;
     wire [                     31:0] rf_value_jalr;
 
     instr_fetcher if0 (
@@ -264,8 +264,8 @@ module cpu (
         .instr_addr_out (rob_instr_addr),
         .is_jump_out    (rob_is_jump),
         // combinatorial logic
-        .rf_dependency1(rf_dependency1),
-        .rf_dependency2(rf_dependency2),
+        .rf_dependency1 (rf_dependency1),
+        .rf_dependency2 (rf_dependency2),
         .is_found_1_out (rob_is_found_1),
         .value1_out     (rob_value1),
         .is_found_2_out (rob_is_found_2),
@@ -357,6 +357,7 @@ module cpu (
         .clk_in        (clk_in),
         .rst_in        (rst_in),
         .rdy_in        (rdy_in),
+        .need_flush_in (rob_need_flush),
         .mem_busy      (mem_busy),
         .mem_valid     (mem_iout_ready),
         .mem_instr     (mem_out),
@@ -408,10 +409,10 @@ module cpu (
         .rob_dependency (rob_dependency),
         .dec_valid      (dec_ready),
         .dec_rd         (dec_dest),
-        .dec_dependency (dec_rob_id),
+        .dec_dependency ({1'b0, dec_rob_id}),
         // combinatorial logic
-        .dec_rs1        (dec_rs1),
-        .dec_rs2        (dec_rs2),
+        .dec_rs1        (0),
+        .dec_rs2        (0),
         .if_rs_jalr     (if2rf_rs_jalr),
         .value1_out     (rf_value1),
         .value2_out     (rf_value2),

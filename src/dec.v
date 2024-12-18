@@ -25,8 +25,8 @@ module dec (
     output reg                             is_jump_out,
     output reg [`CALC_OP_L1_NUM_WIDTH-1:0] calc_op_L1_out,    // for rs
     output reg                             calc_op_L2_out,    // for rs
-    output reg [      `ROB_SIZE_WIDTH-1:0] dependency1_out,
-    output reg [      `ROB_SIZE_WIDTH-1:0] dependency2_out,
+    output reg [        `ROB_SIZE_WIDTH:0] dependency1_out,
+    output reg [        `ROB_SIZE_WIDTH:0] dependency2_out,
     output reg [                     31:0] value1_out,
     output reg [                     31:0] value2_out,
     output reg [                     31:0] imm_out,           // for lsb (store)
@@ -36,14 +36,14 @@ module dec (
     // combinatorial logic
     input [`ROB_SIZE_WIDTH-1:0] rob_next_rob_id,
 
-    input [`ROB_SIZE_WIDTH-1:0] rf_dependency1,
-    input [`ROB_SIZE_WIDTH-1:0] rf_dependency2,
-    input [               31:0] rf_value1,
-    input [               31:0] rf_value2,
-    input                       rob_is_found_1,
-    input [               31:0] rob_value1,
-    input                       rob_is_found_2,
-    input [               31:0] rob_value2,
+    input [`ROB_SIZE_WIDTH:0] rf_dependency1,
+    input [`ROB_SIZE_WIDTH:0] rf_dependency2,
+    input [             31:0] rf_value1,
+    input [             31:0] rf_value2,
+    input                     rob_is_found_1,
+    input [             31:0] rob_value1,
+    input                     rob_is_found_2,
+    input [             31:0] rob_value2,
 
     input rob_full,
     input rs_full,
@@ -165,15 +165,20 @@ module dec (
                      ((is_C == 2'b00 && sub_op_C_L1 == 3'b110) || (is_C == 2'b01 && (sub_op_C_L1 == 3'b100 && sub_op_C_L3 == 2'b11))) ? rs2_C_3 :
                      (is_C == 2'b10 && ((sub_op_C_L1 == 3'b100 && sub_op_C_L1 == 1 && rs2_C_5 != 0) || sub_op_C_L1 == 3'b110)) ? rs2_C_5 : 0;
 
-    wire [`ROB_SIZE_WIDTH-1:0] dependency1;
-    wire [`ROB_SIZE_WIDTH-1:0] dependency2;
-    wire [               31:0] value1;
-    wire [               31:0] value2;
+    wire [`ROB_SIZE_WIDTH:0] dependency1;
+    wire [`ROB_SIZE_WIDTH:0] dependency2;
+    wire [             31:0] value1;
+    wire [             31:0] value2;
 
-    assign dependency1 = (&rf_dependency1) ? -1 : (rob_is_found_1 ? -1 : rf_dependency1);
-    assign dependency2 = (&rf_dependency2) ? -1 : (rob_is_found_2 ? -1 : rf_dependency2);
-    assign value1 = (&rf_dependency1) ? rf_value1 : (rob_is_found_1 ? rob_value1 : 0);
-    assign value2 = (&rf_dependency2) ? rf_value2 : (rob_is_found_2 ? rob_value2 : 0);
+    // assign dependency1 = (&rf_dependency1) ? -1 : (rob_is_found_1 ? -1 : rf_dependency1);
+    // assign dependency2 = (&rf_dependency2) ? -1 : (rob_is_found_2 ? -1 : rf_dependency2);
+    // assign value1 = (&rf_dependency1) ? rf_value1 : (rob_is_found_1 ? rob_value1 : 0);
+    // assign value2 = (&rf_dependency2) ? rf_value2 : (rob_is_found_2 ? rob_value2 : 0);
+
+    assign dependency1 = -1;
+    assign dependency2 = -1;
+    assign value1 = 0;
+    assign value2 = 0;
 
     reg [3:0] tmp_dec_ready;
     reg [4:0] tmp_op;
@@ -214,7 +219,7 @@ module dec (
                         case (sub_op_C_L1)
                             3'b000: begin
                                 tmp_op <= OP_IMM;
-                                tmp_dec_ready <= 5'b1011;
+                                tmp_dec_ready <= 4'b1011;
                                 rob_type_out <= ROB_TYPE_REG;
                                 rob_state_out <= ROB_STATE_EXECUTE;
                                 dest_out <= rs2_C_3;
@@ -227,7 +232,7 @@ module dec (
                             end  // C.ADDI4SPN
                             3'b010: begin
                                 tmp_op <= OP_LOAD;
-                                tmp_dec_ready <= 5'b1101;
+                                tmp_dec_ready <= 4'b1101;
                                 rob_type_out <= ROB_TYPE_REG;
                                 rob_state_out <= ROB_STATE_EXECUTE;
                                 dest_out <= rs2_C_3;
@@ -239,7 +244,7 @@ module dec (
                             end  // C.LW
                             3'b110: begin
                                 tmp_op <= OP_STORE;
-                                tmp_dec_ready <= 5'b0101;
+                                tmp_dec_ready <= 4'b0101;
                                 rob_type_out <= sub_op;
                                 rob_state_out <= ROB_STATE_EXECUTE;
                                 mem_type_out <= MEM_SW;
@@ -255,7 +260,7 @@ module dec (
                         case (sub_op_C_L1)
                             3'b000, 3'b010: begin
                                 tmp_op <= OP_IMM;
-                                tmp_dec_ready <= 5'b1011;
+                                tmp_dec_ready <= 4'b1011;
                                 rob_type_out <= ROB_TYPE_REG;
                                 rob_state_out <= ROB_STATE_EXECUTE;
                                 dest_out <= rs1_C_5;
@@ -268,7 +273,7 @@ module dec (
                             end  // C.ADDI, C.LI
                             3'b001: begin
                                 tmp_op <= OP_JAL;
-                                tmp_dec_ready <= 5'b1001;
+                                tmp_dec_ready <= 4'b1001;
                                 rob_type_out <= ROB_TYPE_REG;
                                 rob_state_out <= ROB_STATE_WRITE_RESULT;
                                 dest_out <= 1;
@@ -277,7 +282,7 @@ module dec (
                             3'b011: begin
                                 if (rs1_C_5 == 2) begin
                                     tmp_op <= OP_IMM;
-                                    tmp_dec_ready <= 5'b1011;
+                                    tmp_dec_ready <= 4'b1011;
                                     rob_type_out <= ROB_TYPE_REG;
                                     rob_state_out <= ROB_STATE_EXECUTE;
                                     dest_out <= 2;
@@ -290,7 +295,7 @@ module dec (
                                 end  // C.ADDI16SP
                                 else begin
                                     tmp_op <= OP_LUI;
-                                    tmp_dec_ready <= 5'b1001;
+                                    tmp_dec_ready <= 4'b1001;
                                     rob_type_out <= ROB_TYPE_REG;
                                     rob_state_out <= ROB_STATE_WRITE_RESULT;
                                     dest_out <= rs1_C_5;
@@ -319,7 +324,7 @@ module dec (
                                     end
                                     default: begin
                                         tmp_op <= OP_IMM;
-                                        tmp_dec_ready <= 5'b1011;
+                                        tmp_dec_ready <= 4'b1011;
                                         rob_type_out <= ROB_TYPE_REG;
                                         rob_state_out <= ROB_STATE_EXECUTE;
                                         dest_out <= rs1_C_3;
@@ -334,7 +339,7 @@ module dec (
                             end
                             3'b101: begin
                                 tmp_op <= OP_JAL;
-                                tmp_dec_ready <= 5'b1001;
+                                tmp_dec_ready <= 4'b1001;
                                 rob_type_out <= ROB_TYPE_REG;
                                 rob_state_out <= ROB_STATE_WRITE_RESULT;
                                 dest_out <= 0;
@@ -342,7 +347,7 @@ module dec (
                             end  // C.J
                             3'b110: begin
                                 tmp_op <= OP_BRANCH;
-                                tmp_dec_ready <= 5'b0011;
+                                tmp_dec_ready <= 4'b0011;
                                 rob_type_out <= ROB_TYPE_BRANCH;
                                 rob_state_out <= ROB_STATE_EXECUTE;
                                 calc_op_L1_out <= CALC_SEQ;
@@ -354,7 +359,7 @@ module dec (
                             end  // C.BEQZ
                             3'b111: begin
                                 tmp_op <= OP_BRANCH;
-                                tmp_dec_ready <= 5'b0011;
+                                tmp_dec_ready <= 4'b0011;
                                 rob_type_out <= ROB_TYPE_BRANCH;
                                 rob_state_out <= ROB_STATE_EXECUTE;
                                 calc_op_L1_out <= CALC_SNE;
@@ -370,7 +375,7 @@ module dec (
                         case (sub_op_C_L1)
                             3'b000: begin
                                 tmp_op <= OP_IMM;
-                                tmp_dec_ready <= 5'b1011;
+                                tmp_dec_ready <= 4'b1011;
                                 rob_type_out <= ROB_TYPE_REG;
                                 rob_state_out <= ROB_STATE_EXECUTE;
                                 dest_out <= rs1_C_5;
@@ -383,7 +388,7 @@ module dec (
                             end  // C.SLLI
                             3'b010: begin
                                 tmp_op <= OP_LOAD;
-                                tmp_dec_ready <= 5'b1101;
+                                tmp_dec_ready <= 4'b1101;
                                 rob_type_out <= ROB_TYPE_REG;
                                 rob_state_out <= ROB_STATE_EXECUTE;
                                 dest_out <= rs1_C_5;
@@ -398,7 +403,7 @@ module dec (
                                     1'b0: begin
                                         if (rs2_C_5 == 0) begin
                                             tmp_op <= OP_JALR;
-                                            tmp_dec_ready <= 5'b1011;
+                                            tmp_dec_ready <= 4'b1011;
                                             rob_type_out <= ROB_TYPE_JALR;
                                             rob_state_out <= ROB_STATE_EXECUTE;
                                             dest_out <= 0;
@@ -411,7 +416,7 @@ module dec (
                                         end  // C.JR
                                         else begin
                                             tmp_op <= OP_IMM;
-                                            tmp_dec_ready <= 5'b1011;
+                                            tmp_dec_ready <= 4'b1011;
                                             rob_type_out <= ROB_TYPE_REG;
                                             rob_state_out <= ROB_STATE_EXECUTE;
                                             dest_out <= rs1_C_5;
@@ -426,7 +431,7 @@ module dec (
                                     1'b1: begin
                                         if (rs2_C_5 == 0) begin
                                             tmp_op <= OP_JALR;
-                                            tmp_dec_ready <= 5'b1011;
+                                            tmp_dec_ready <= 4'b1011;
                                             rob_type_out <= ROB_TYPE_JALR;
                                             rob_state_out <= ROB_STATE_EXECUTE;
                                             dest_out <= 1;
@@ -455,7 +460,7 @@ module dec (
                             end
                             3'b110: begin
                                 tmp_op <= OP_STORE;
-                                tmp_dec_ready <= 5'b0101;
+                                tmp_dec_ready <= 4'b0101;
                                 rob_type_out <= sub_op;
                                 rob_state_out <= ROB_STATE_EXECUTE;
                                 mem_type_out <= MEM_SW;
@@ -472,7 +477,7 @@ module dec (
                         dest_out <= rd;
                         case (op)
                             OP_LUI, OP_AUIPC, OP_JAL: begin
-                                tmp_dec_ready <= 5'b1001;
+                                tmp_dec_ready <= 4'b1001;
                                 rob_type_out  <= ROB_TYPE_REG;
                                 rob_state_out <= ROB_STATE_WRITE_RESULT;
                                 case (op)
@@ -482,7 +487,7 @@ module dec (
                                 endcase
                             end
                             OP_JALR: begin
-                                tmp_dec_ready <= 5'b1011;
+                                tmp_dec_ready <= 4'b1011;
                                 rob_type_out <= ROB_TYPE_JALR;
                                 rob_state_out <= ROB_STATE_EXECUTE;
                                 calc_op_L1_out <= CALC_ADD_SUB;
@@ -493,7 +498,7 @@ module dec (
                                 value2_out <= imm_12_I;
                             end
                             OP_BRANCH: begin
-                                tmp_dec_ready <= 5'b0011;
+                                tmp_dec_ready <= 4'b0011;
                                 rob_type_out <= ROB_TYPE_BRANCH;
                                 rob_state_out <= ROB_STATE_EXECUTE;
                                 calc_op_L1_out <= sub_op == 3'b100 ? CALC_SLT : sub_op == 3'b110 ? CALC_SLTU : {1'b1, sub_op};
@@ -504,7 +509,7 @@ module dec (
                                 value2_out <= value2;
                             end  // SLT and SLTU already exist
                             OP_LOAD: begin
-                                tmp_dec_ready <= 5'b1101;
+                                tmp_dec_ready <= 4'b1101;
                                 rob_type_out <= ROB_TYPE_REG;
                                 rob_state_out <= ROB_STATE_EXECUTE;
                                 mem_type_out <= {1'b0, sub_op};
@@ -514,7 +519,7 @@ module dec (
                                 value2_out <= imm_12_I;
                             end
                             OP_STORE: begin
-                                tmp_dec_ready <= 5'b0101;
+                                tmp_dec_ready <= 4'b0101;
                                 rob_type_out <= sub_op;
                                 rob_state_out <= ROB_STATE_EXECUTE;
                                 mem_type_out <= {1'b1, sub_op};
@@ -525,7 +530,7 @@ module dec (
                                 imm_out <= imm_12_S;
                             end
                             OP_IMM: begin
-                                tmp_dec_ready <= 5'b1011;
+                                tmp_dec_ready <= 4'b1011;
                                 rob_type_out <= ROB_TYPE_REG;
                                 rob_state_out <= ROB_STATE_EXECUTE;
                                 calc_op_L1_out <= {1'b0, sub_op};

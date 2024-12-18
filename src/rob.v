@@ -15,14 +15,14 @@ module rob (
     input [ROB_STATE_NUM_WIDTH-1:0] dec_rob_state,
     input                           dec_is_jump,
 
-    input                      alu_valid,
-    input [ROB_SIZE_WIDTH-1:0] alu_dependency,
-    input [              31:0] alu_value,
+    input                    alu_valid,
+    input [ROB_SIZE_WIDTH:0] alu_dependency,
+    input [            31:0] alu_value,
 
-    input                      mem_valid,
-    input [ROB_SIZE_WIDTH-1:0] mem_dependency,
-    input [              31:0] mem_value,
-    input                      mem_busy,
+    input                    mem_valid,
+    input [ROB_SIZE_WIDTH:0] mem_dependency,
+    input [            31:0] mem_value,
+    input                    mem_busy,
 
     input                      lsb_valid,
     input [ROB_SIZE_WIDTH-1:0] lsb_rob_id,
@@ -37,7 +37,7 @@ module rob (
 
     output reg [`REG_NUM_WIDTH-1:0] rd_out,  // for rf
     output reg [31:0] value_out,  // for rf and mem
-    output reg [ROB_SIZE_WIDTH-1:0] dependency_out,  // for rf
+    output reg [ROB_SIZE_WIDTH:0] dependency_out,  // for rf
     output reg [STORE_TYPE_NUM_WIDTH-1:0] store_type_out,  // for mem
     output reg [31:0] data_addr_out,  // for mem
     output reg [31:0] jump_addr_out,  // for if, valid only if need_flush_out is high
@@ -45,8 +45,8 @@ module rob (
     output reg is_jump_out,  // for pred
 
     // combinatorial logic
-    input wire [`ROB_SIZE_WIDTH-1:0] rf_dependency1,
-    input wire [`ROB_SIZE_WIDTH-1:0] rf_dependency2,
+    input wire [`ROB_SIZE_WIDTH:0] rf_dependency1,
+    input wire [`ROB_SIZE_WIDTH:0] rf_dependency2,
 
     output wire                      is_found_1_out,
     output wire [              31:0] value1_out,
@@ -95,22 +95,27 @@ module rob (
     assign rear_next = (buffer_rear + 1) & ROB_SIZE;
     assign front = (buffer_head + 1) & ROB_SIZE;
 
-    assign value1_out = (dec_valid[0] && rear_next == rf_dependency1) ? dec_value :
-                    (alu_valid && alu_dependency == rf_dependency1) ? alu_value :
-                    (mem_valid && mem_dependency == rf_dependency1) ? mem_value : buffer_value[rf_dependency1];
-    assign is_found_1_out = (dec_valid[0] && rear_next == rf_dependency1 && dec_rob_state == ROB_STATE_WRITE_RESULT) ||
-                        (alu_valid && alu_dependency == rf_dependency1) ||
-                        (mem_valid && mem_dependency == rf_dependency1) ||
-                        (buffer_rob_state[rf_dependency1] == ROB_STATE_WRITE_RESULT);
-    assign value2_out = (dec_valid[0] && rear_next == rf_dependency2) ? dec_value :
-                    (alu_valid && alu_dependency == rf_dependency2) ? alu_value :
-                    (mem_valid && mem_dependency == rf_dependency2) ? mem_value : buffer_value[rf_dependency2];
-    assign is_found_2_out = (dec_valid[0] && rear_next == rf_dependency2 && dec_rob_state == ROB_STATE_WRITE_RESULT) ||
-                        (alu_valid && alu_dependency == rf_dependency2) ||
-                        (mem_valid && mem_dependency == rf_dependency2) ||
-                        (buffer_rob_state[rf_dependency2] == ROB_STATE_WRITE_RESULT);
+    // assign value1_out = (dec_valid[0] && {1'b0, rear_next} == rf_dependency1) ? dec_value :
+    //                 (alu_valid && alu_dependency == rf_dependency1) ? alu_value :
+    //                 (mem_valid && mem_dependency == rf_dependency1) ? mem_value : buffer_value[rf_dependency1];
+    // assign is_found_1_out = (dec_valid[0] && {1'b0, rear_next} == rf_dependency1 && dec_rob_state == ROB_STATE_WRITE_RESULT) ||
+    //                     (alu_valid && alu_dependency == rf_dependency1) ||
+    //                     (mem_valid && mem_dependency == rf_dependency1) ||
+    //                     (buffer_rob_state[rf_dependency1] == ROB_STATE_WRITE_RESULT);
+    // assign value2_out = (dec_valid[0] && {1'b0, rear_next} == rf_dependency2) ? dec_value :
+    //                 (alu_valid && alu_dependency == rf_dependency2) ? alu_value :
+    //                 (mem_valid && mem_dependency == rf_dependency2) ? mem_value : buffer_value[rf_dependency2];
+    // assign is_found_2_out = (dec_valid[0] && {1'b0, rear_next} == rf_dependency2 && dec_rob_state == ROB_STATE_WRITE_RESULT) ||
+    //                     (alu_valid && alu_dependency == rf_dependency2) ||
+    //                     (mem_valid && mem_dependency == rf_dependency2) ||
+    //                     (buffer_rob_state[rf_dependency2] == ROB_STATE_WRITE_RESULT);
     assign buffer_full_out = (buffer_size + dec_valid[0] == ROB_SIZE);
     assign next_rob_id_out = (buffer_rear + 1 + dec_valid[0]) & ROB_SIZE;
+
+    assign value1_out = 0;
+    assign is_found_1_out = 0;
+    assign value2_out = 0;
+    assign is_found_2_out = 0;
 
     /* debug */
     wire [ROB_TYPE_NUM_WIDTH-1:0] top_rob_type = buffer_rob_type[front];

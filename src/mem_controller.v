@@ -24,14 +24,14 @@ module mem_controller (
 
     input                           lsb_valid,
     input [                   31:0] lsb_aout,
-    input [    `ROB_SIZE_WIDTH-1:0] lsb_dependency,
+    input [      `ROB_SIZE_WIDTH:0] lsb_dependency,
     input [LOAD_TYPE_NUM_WIDTH-1:0] lsb_load_type,
 
-    output reg                        dout_ready,
-    output reg                        iout_ready,
+    output reg                      dout_ready,
+    output reg                      iout_ready,
     // 由于从 ram 读取数据只能在下一周期接收结果，所以用 wire 类型直接连接
-    output wire [               31:0] out,
-    output reg  [`ROB_SIZE_WIDTH-1:0] dependency_out,
+    output wire [             31:0] out,
+    output reg  [`ROB_SIZE_WIDTH:0] dependency_out,
 
     output wire busy_out
 );
@@ -53,26 +53,26 @@ module mem_controller (
              如果优化 RoB 阻塞 Store 的问题可以直接解决这个问题。*/
     // TODO: busy_out 可优化
 
-    reg  [               31:0] tmp_result;
-    reg                        working;
-    reg  [                2:0] work_cycle;
-    reg  [                1:0] work_time;
+    reg  [             31:0] tmp_result;
+    reg                      working;
+    reg  [              2:0] work_cycle;
+    reg  [              1:0] work_time;
     // tmp input
-    reg  [               31:0] tmp_din;
-    reg  [               31:0] tmp_ain;
-    reg  [`ROB_SIZE_WIDTH-1:0] tmp_lsb_dependency;
-    reg                        tmp_wr;
-    reg                        tmp_is_unsigned;  // 1 for unsigned, 0 for signed
-    reg                        tmp_is_instr;
+    reg  [             31:0] tmp_din;
+    reg  [             31:0] tmp_ain;
+    reg  [`ROB_SIZE_WIDTH:0] tmp_lsb_dependency;
+    reg                      tmp_wr;
+    reg                      tmp_is_unsigned;  // 1 for unsigned, 0 for signed
+    reg                      tmp_is_instr;
 
-    wire                       wire_working;
-    wire [                1:0] wire_work_time;
-    wire [               31:0] wire_ain;
-    wire                       cur_working;
-    wire                 [1:0] cur_work_time;
-    wire [               31:0] cur_din;
-    wire [               31:0] cur_ain;
-    wire                       cur_wr;
+    wire                     wire_working;
+    wire [              1:0] wire_work_time;
+    wire [             31:0] wire_ain;
+    wire                     cur_working;
+    wire [              1:0] cur_work_time;
+    wire [             31:0] cur_din;
+    wire [             31:0] cur_ain;
+    wire                     cur_wr;
 
     // 2'b00 -> byte; 2'b01 -> half; 2'b10 -> word
     assign wire_working = rob_valid || lsb_valid || ic_valid;
@@ -101,13 +101,15 @@ module mem_controller (
             dout_ready <= 0;
             iout_ready <= 0;
             work_cycle <= 3'b000;
+            working <= 0;
         end else if (!rdy_in) begin
             /* do nothing */
         end else begin
-            if (need_flush_in) begin
+            if (need_flush_in && !cur_wr) begin
                 work_cycle <= 3'b000;
                 dout_ready <= 0;
                 iout_ready <= 0;
+                working <= 0;
             end else begin
                 if (!cur_working) begin
                     dout_ready <= 0;
@@ -133,9 +135,9 @@ module mem_controller (
                     case (work_cycle)
                         3'b000: begin
                             // 输入第一个字节的地址和数据
-                            byte_a   <= cur_ain;
+                            byte_a <= cur_ain;
                             byte_din <= cur_din[7:0];
-                            byte_wr  <= cur_wr;
+                            byte_wr <= cur_wr;
                             work_cycle <= 2'b01;
                         end
                         3'b001: begin

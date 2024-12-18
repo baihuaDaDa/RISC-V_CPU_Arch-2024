@@ -411,8 +411,8 @@ module cpu (
         .dec_rd         (dec_dest),
         .dec_dependency ({1'b0, dec_rob_id}),
         // combinatorial logic
-        .dec_rs1        (0),
-        .dec_rs2        (0),
+        .dec_rs1        (dec_rs1),
+        .dec_rs2        (dec_rs2),
         .if_rs_jalr     (if2rf_rs_jalr),
         .value1_out     (rf_value1),
         .value2_out     (rf_value2),

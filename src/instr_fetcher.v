@@ -55,7 +55,6 @@ module instr_fetcher (
     assign rs_jalr_out = (ic_hit || ic_miss_ready) && ic_instr[1:0] == 2'b11 && ic_instr[6:2] == 5'b11001 ? ic_instr[19:15] :
                          (ic_hit || ic_miss_ready) && ic_instr[1:0] != 2'b11 && ic_instr[15:13] == 3'b100 && ic_instr[6:2] == 0 ? ic_instr[11:7] : 5'b0;
 
-    // TODO: when to stop?
     always @(posedge clk_in) begin
         if (rst_in !== 1'b0) begin
             if2dec_ready <= 0;

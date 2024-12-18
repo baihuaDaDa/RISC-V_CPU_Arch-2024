@@ -18,7 +18,7 @@ module predictor(
     localparam PREDICTOR_SIZE_WIDTH = `PREDICTOR_SIZE_WIDTH;
     localparam PREDICTOR_MOD = PREDICTOR_SIZE - 1;
 
-    reg [31:0] counter [PREDICTOR_SIZE-1:0];
+    reg [1:0] counter [PREDICTOR_SIZE-1:0];
 
     integer i;
     wire [31:0] index;
@@ -32,7 +32,7 @@ module predictor(
     always@(posedge clk_in) begin
         if (rst_in !== 1'b0) begin
             for (i = 0; i < PREDICTOR_SIZE; i = i + 1) begin
-                counter[i] <= 0;
+                counter[i] <= 2'b00;
             end
         end else if (!rdy_in) begin
             /* do nothing */

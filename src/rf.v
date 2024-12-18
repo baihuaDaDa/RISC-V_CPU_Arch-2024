@@ -31,13 +31,13 @@ module rf (
     localparam REG_NUM_WIDTH = `REG_NUM_WIDTH;
     localparam REG_NUM = `REG_NUM;
 
-    reg     [               31:0] regs          [REG_NUM-1:0];
-    reg     [`ROB_SIZE_WIDTH-1:0] reg_dependency[REG_NUM-1:0];
-    integer                       i;
+    reg     [               31:0]                           regs          [REG_NUM-1:0];
+    reg     [`ROB_SIZE_WIDTH-1:0]                           reg_dependency[REG_NUM-1:0];
+    integer                                                 i;
 
     /* debug */
-    wire [31:0] ra = regs[1];
-    wire [`ROB_SIZE_WIDTH-1:0] ra_d = reg_dependency[1];
+    wire    [               31:0] ra = regs[1];
+    wire    [`ROB_SIZE_WIDTH-1:0] ra_d = reg_dependency[1];
 
     assign value1_out = (rob_valid && rob_rd == dec_rs1) ? rob_value : regs[dec_rs1];
     assign value2_out = (rob_valid && rob_rd == dec_rs2) ? rob_value : regs[dec_rs2];
@@ -51,12 +51,17 @@ module rf (
 
     always @(posedge clk_in) begin
         if (rst_in !== 1'b0) begin
-            flush();
+            for (i = 0; i < REG_NUM; i = i + 1) begin
+                reg_dependency[i] <= -1;
+                regs[i] <= 0;
+            end
         end else if (!rdy_in) begin
             /* do nothing */
         end else begin
             if (need_flush_in) begin
-                flush();
+                for (i = 0; i < REG_NUM; i = i + 1) begin
+                    reg_dependency[i] <= -1;
+                end
             end else begin
                 if (rob_valid && rob_rd) begin
                     regs[rob_rd] <= rob_value;
@@ -70,14 +75,5 @@ module rf (
             end
         end
     end
-
-    task flush;
-        begin
-            for (i = 0; i < REG_NUM; i++) begin
-                reg_dependency[i] <= -1;
-                regs[i] <= 0;
-            end
-        end
-    endtask
 
 endmodule

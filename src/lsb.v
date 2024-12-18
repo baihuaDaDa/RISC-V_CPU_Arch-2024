@@ -210,8 +210,8 @@ module lsb (
                 end else begin
                     sb2rob_ready <= 0;
                 end
+                break_flag = 0;
                 if (!mem_busy) begin
-                    break_flag = 0;
                     for (i = 0; i < LB_SIZE && !break_flag; i = i + 1) begin
                         if (lb_busy[i] && (&lb_dependency1[i]) && (sb_size == 0 || (sb_size && lb_age[i] < sb_age[sb_front]))) begin
                             lb2mem_load_type <= lb_load_type[i];

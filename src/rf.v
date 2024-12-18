@@ -70,7 +70,7 @@ module rf (
                     end
                 end
                 if (dec_valid[3] && dec_rd) begin
-                    regs[dec_rd] <= regs[dec_dependency];
+                    reg_dependency[dec_rd] <= dec_dependency;
                 end
             end
         end

@@ -148,7 +148,7 @@ module mem_controller (
                             end else begin
                                 work_cycle <= 3'b000;
                                 working <= 0;
-                                dout_ready <= cur_wr;
+                                dout_ready <= !cur_wr;
                                 dependency_out <= tmp_lsb_dependency;
                             end
                         end
@@ -160,7 +160,7 @@ module mem_controller (
                                     work_time  <= 2'b01;
                                     iout_ready <= 1;
                                 end else begin
-                                    dout_ready <= cur_wr;
+                                    dout_ready <= !cur_wr;
                                     dependency_out <= tmp_lsb_dependency;
                                 end
                                 work_cycle <= 3'b000;
@@ -188,7 +188,7 @@ module mem_controller (
                             if (tmp_is_instr) begin
                                 iout_ready <= 1;
                             end else begin
-                                dout_ready <= cur_wr;
+                                dout_ready <= !cur_wr;
                                 dependency_out <= tmp_lsb_dependency;
                             end
                         end

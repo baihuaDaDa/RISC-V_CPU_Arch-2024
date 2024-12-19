@@ -80,33 +80,31 @@ module rob (
 
     // LoopQueue<RoBEntry, kBufferCapBin> buffer;
     reg [ROB_SIZE_WIDTH-1:0] buffer_head, buffer_rear, buffer_size;
-    reg  [ ROB_TYPE_NUM_WIDTH-1:0] buffer_rob_type  [ROB_SIZE:0];  // ROB_SIZE = 31
-    reg  [     `REG_NUM_WIDTH-1:0] buffer_dest_reg  [ROB_SIZE:0];
-    reg  [                   31:0] buffer_dest_mem  [ROB_SIZE:0];  // for S-type
-    reg  [                   31:0] buffer_value     [ROB_SIZE:0];
-    reg  [                   31:0] buffer_instr_addr[ROB_SIZE:0];
-    reg  [                   31:0] buffer_jump_addr [ROB_SIZE:0];
-    reg  [ROB_STATE_NUM_WIDTH-1:0] buffer_rob_state [ROB_SIZE:0];
-    reg                            buffer_is_jump   [ROB_SIZE:0];
+    reg     [ ROB_TYPE_NUM_WIDTH-1:0] buffer_rob_type  [ROB_SIZE:0];  // ROB_SIZE = 31
+    reg     [     `REG_NUM_WIDTH-1:0] buffer_dest_reg  [ROB_SIZE:0];
+    reg     [                   31:0] buffer_dest_mem  [ROB_SIZE:0];  // for S-type
+    reg     [                   31:0] buffer_value     [ROB_SIZE:0];
+    reg     [                   31:0] buffer_instr_addr[ROB_SIZE:0];
+    reg     [                   31:0] buffer_jump_addr [ROB_SIZE:0];
+    reg     [ROB_STATE_NUM_WIDTH-1:0] buffer_rob_state [ROB_SIZE:0];
+    reg                               buffer_is_jump   [ROB_SIZE:0];
 
-    wire [     ROB_SIZE_WIDTH-1:0] rear_next;
-    wire [     ROB_SIZE_WIDTH-1:0] front;
+    integer                           i;
+
+    wire    [     ROB_SIZE_WIDTH-1:0] rear_next;
+    wire    [     ROB_SIZE_WIDTH-1:0] front;
 
     assign rear_next = (buffer_rear + 1) & ROB_SIZE;
     assign front = (buffer_head + 1) & ROB_SIZE;
 
-    assign value1_out = (dec_valid[0] && {1'b0, rear_next} == rf_dependency1) ? dec_value :
-                    (alu_valid && alu_dependency == rf_dependency1) ? alu_value :
+    assign value1_out = (alu_valid && alu_dependency == rf_dependency1) ? alu_value :
                     (mem_valid && mem_dependency == rf_dependency1) ? mem_value : buffer_value[rf_dependency1];
-    assign is_found_1_out = (dec_valid[0] && {1'b0, rear_next} == rf_dependency1 && dec_rob_state == ROB_STATE_WRITE_RESULT) ||
-                        (alu_valid && alu_dependency == rf_dependency1) ||
+    assign is_found_1_out = (alu_valid && alu_dependency == rf_dependency1) ||
                         (mem_valid && mem_dependency == rf_dependency1) ||
                         (buffer_rob_state[rf_dependency1] == ROB_STATE_WRITE_RESULT);
-    assign value2_out = (dec_valid[0] && {1'b0, rear_next} == rf_dependency2) ? dec_value :
-                    (alu_valid && alu_dependency == rf_dependency2) ? alu_value :
+    assign value2_out = (alu_valid && alu_dependency == rf_dependency2) ? alu_value :
                     (mem_valid && mem_dependency == rf_dependency2) ? mem_value : buffer_value[rf_dependency2];
-    assign is_found_2_out = (dec_valid[0] && {1'b0, rear_next} == rf_dependency2 && dec_rob_state == ROB_STATE_WRITE_RESULT) ||
-                        (alu_valid && alu_dependency == rf_dependency2) ||
+    assign is_found_2_out = (alu_valid && alu_dependency == rf_dependency2) ||
                         (mem_valid && mem_dependency == rf_dependency2) ||
                         (buffer_rob_state[rf_dependency2] == ROB_STATE_WRITE_RESULT);
     assign buffer_full_out = (buffer_size + dec_valid[0] == ROB_SIZE);
@@ -131,14 +129,32 @@ module rob (
     //      flush的时候不要清楚LSB中正在写回的store指令，这样可以有效避免RoB被访存指令阻塞。
     always @(posedge clk_in) begin
         if (rst_in !== 1'b0) begin
-            buffer_head <= 0;
-            buffer_rear <= 0;
-            buffer_size <= 0;
             rob2rf_ready <= 0;
             rob2mem_ready <= 0;
             rob2lsb_pop_sb <= 0;
             rob2pred_ready <= 0;
             need_flush_out <= 0;
+            rd_out <= 0;
+            value_out <= 0;
+            dependency_out <= -1;
+            store_type_out <= 0;
+            data_addr_out <= 0;
+            jump_addr_out <= 0;
+            instr_addr_out <= 0;
+            is_jump_out <= 0;
+            buffer_head <= 0;
+            buffer_rear <= 0;
+            buffer_size <= 0;
+            for (i = 0; i <= ROB_SIZE; i = i + 1) begin
+                buffer_rob_type[i] <= 0;
+                buffer_dest_reg[i] <= 0;
+                buffer_dest_mem[i] <= 0;
+                buffer_value[i] <= 0;
+                buffer_instr_addr[i] <= 0;
+                buffer_jump_addr[i] <= 0;
+                buffer_rob_state[i] <= 0;
+                buffer_is_jump[i] <= 0;
+            end
         end else if (!rdy_in) begin
             /* do nothing */
         end else begin

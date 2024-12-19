@@ -15,10 +15,10 @@ module rf (
     input [              3:0] dec_valid,
     input [REG_NUM_WIDTH-1:0] dec_rd,
     input [`ROB_SIZE_WIDTH:0] dec_dependency,
-
-    // combinatorial logic
     input [REG_NUM_WIDTH-1:0] dec_rs1,
     input [REG_NUM_WIDTH-1:0] dec_rs2,
+
+    // combinatorial logic
     input [REG_NUM_WIDTH-1:0] if_rs_jalr,
 
     output wire [             31:0] value1_out,
@@ -39,14 +39,10 @@ module rf (
     wire    [             31:0] ra = regs[1];
     wire    [`ROB_SIZE_WIDTH:0] ra_d = reg_dependency[1];
 
-    assign value1_out = (rob_valid && rob_rd == dec_rs1) ? rob_value : regs[dec_rs1];
-    assign value2_out = (rob_valid && rob_rd == dec_rs2) ? rob_value : regs[dec_rs2];
-    assign dependency1_out = (dec_valid[3] && dec_rd == dec_rs1) ? dec_dependency :
-                         (rob_valid && rob_rd == dec_rs1 && rob_dependency == reg_dependency[dec_rs1]) ? -1 :
-                         reg_dependency[dec_rs1];
-    assign dependency2_out = (dec_valid[3] && dec_rd == dec_rs2) ? dec_dependency :
-                         (rob_valid && rob_rd == dec_rs2 && rob_dependency == reg_dependency[dec_rs1]) ? -1 :
-                         reg_dependency[dec_rs2];
+    assign value1_out = (dec_rs1 == 0) ? 0 : (rob_valid && rob_rd == dec_rs1) ? rob_value : regs[dec_rs1];
+    assign value2_out = (dec_rs2 == 0) ? 0 : (rob_valid && rob_rd == dec_rs2) ? rob_value : regs[dec_rs2];
+    assign dependency1_out = (dec_rs1 == 0 || (rob_valid && rob_rd == dec_rs1 && rob_dependency == reg_dependency[dec_rs1])) ? -1 : reg_dependency[dec_rs1];
+    assign dependency2_out = (dec_rs2 == 0 || (rob_valid && rob_rd == dec_rs2 && rob_dependency == reg_dependency[dec_rs2])) ? -1 : reg_dependency[dec_rs2];
     assign value_jalr_out = regs[if_rs_jalr];
 
     // assign value1_out = 0;

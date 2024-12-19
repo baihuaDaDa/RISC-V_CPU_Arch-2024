@@ -7,10 +7,6 @@ module lsb (
 
     input [                   3:0] dec_valid,
     input [MEM_TYPE_NUM_WIDTH-1:0] dec_mem_type,
-    input [                  31:0] dec_value1,
-    input [                  31:0] dec_value2,
-    input [     `ROB_SIZE_WIDTH:0] dec_dependency1,
-    input [     `ROB_SIZE_WIDTH:0] dec_dependency2,
     input [                  31:0] dec_imm,
     input [   `ROB_SIZE_WIDTH-1:0] dec_rob_id,
 
@@ -38,6 +34,16 @@ module lsb (
     output reg                       sb2rob_ready,
 
     // combinatorial logic
+    input [                  31:0] rf_value1,
+    input [                  31:0] rf_value2,
+    input [     `ROB_SIZE_WIDTH:0] rf_dependency1,
+    input [     `ROB_SIZE_WIDTH:0] rf_dependency2,
+
+    input [31:0] rob_value1,
+    input [31:0] rob_value2,
+    input rob_is_found_1,
+    input rob_is_found_2,
+
     output wire lb_full_out,
     output wire sb_full_out
 );
@@ -72,7 +78,6 @@ module lsb (
     reg [                   31:0] lb_value1                 [LB_SIZE-1:0];
     reg [                   31:0] lb_value2                 [LB_SIZE-1:0];
     reg [      `ROB_SIZE_WIDTH:0] lb_dependency1            [LB_SIZE-1:0];
-    reg [      `ROB_SIZE_WIDTH:0] lb_dependency2            [LB_SIZE-1:0];
     reg [    `ROB_SIZE_WIDTH-1:0] lb_rob_id                 [LB_SIZE-1:0];
     reg [                   31:0] lb_age                    [LB_SIZE-1:0];
 
@@ -100,6 +105,23 @@ module lsb (
     assign lb_full_out = (lb_size + (dec_valid[2] && dec_mem_type <= 3'b100) == LB_SIZE);
     assign sb_full_out = (sb_size + (dec_valid[2] && dec_mem_type > 3'b100) - rob_pop_sb == SB_SIZE);
 
+    wire [`ROB_SIZE_WIDTH:0] dependency1;
+    wire [`ROB_SIZE_WIDTH:0] dependency2;
+    wire [             31:0] value1;
+    wire [             31:0] value2;
+
+    assign dependency1 = (&rf_dependency1) ? -1 : (rob_is_found_1 ? -1 : rf_dependency1);
+    assign dependency2 = (&rf_dependency2) ? -1 : (rob_is_found_2 ? -1 : rf_dependency2);
+    assign value1 = (&rf_dependency1) ? rf_value1 : (rob_is_found_1 ? rob_value1 : 0);
+    assign value2 = (&rf_dependency2) ? rf_value2 : (rob_is_found_2 ? rob_value2 : 0);
+
+    // reg [LB_SIZE_WIDTH-1:0] pos[LB_SIZE-1:0];
+    // reg ok[LB_SIZE-1:0];
+
+    // always @(*) begin
+    //     ;
+    // end
+
     /* debug */
     wire [               31:0] sb_top_value1 = sb_value1[sb_front];
     wire [               31:0] sb_top_value2 = sb_value2[sb_front];
@@ -111,16 +133,38 @@ module lsb (
 
     always @(posedge clk_in) begin
         if (rst_in !== 1'b0) begin
-            for (i = 0; i < LB_SIZE; i = i + 1) begin
-                lb_busy[i] <= 1'b0;
-            end
+            lb2mem_ready <= 0;
+            lb2mem_load_type <= 0;
+            lb2mem_addr <= 0;
+            lb2mem_dependency <= -1;
+            sb2rob_ready <= 0;
+            sb2rob_rob_id <= 0;
+            sb2rob_dest <= 0;
+            sb2rob_value <= 0;
             age_cnt <= 0;
             lb_size <= 0;
+            for (i = 0; i < LB_SIZE; i = i + 1) begin
+                lb_busy[i] <= 1'b0;
+                lb_load_type[i] <= 0;
+                lb_value1[i] <= 0;
+                lb_value2[i] <= 0;
+                lb_dependency1[i] <= -1;
+                lb_rob_id[i] <= 0;
+                lb_age[i] <= 0;
+            end
+            for (i = 0; i <= SB_SIZE; i = i + 1) begin
+                sb_value1[i] <= 0;
+                sb_value2[i] <= 0;
+                sb_dependency1[i] <= -1;
+                sb_dependency2[i] <= -1;
+                sb_imm[i] <= 0;
+                sb_rob_id[i] <= 0;
+                sb_age[i] <= 0;
+            end
             sb_head <= 0;
             sb_rear <= 0;
             sb_size <= 0;
-            lb2mem_ready <= 0;
-            sb2rob_ready <= 0;
+            break_flag <= 0;
         end else if (!rdy_in) begin
             /* do nothing */
         end else begin
@@ -143,20 +187,19 @@ module lsb (
                             if (!lb_busy[i]) begin
                                 lb_busy[i] <= 1;
                                 lb_load_type[i] <= dec_mem_type;
-                                lb_value1[i] <= dec_value1;
-                                lb_value2[i] <= dec_value2;
-                                lb_dependency1[i] <= dec_dependency1;
-                                lb_dependency2[i] <= dec_dependency2;
+                                lb_value1[i] <= value1;
+                                lb_value2[i] <= dec_imm;
+                                lb_dependency1[i] <= dependency1;
                                 lb_rob_id[i] <= dec_rob_id;
                                 lb_age[i] <= age_cnt;
                                 break_flag = 1;
                             end
                         end
                     end else begin
-                        sb_dependency1[sb_rear_next] <= dec_dependency1;
-                        sb_dependency2[sb_rear_next] <= dec_dependency2;
-                        sb_value1[sb_rear_next] <= dec_value1;
-                        sb_value2[sb_rear_next] <= dec_value2;
+                        sb_dependency1[sb_rear_next] <= dependency1;
+                        sb_dependency2[sb_rear_next] <= dependency2;
+                        sb_value1[sb_rear_next] <= value1;
+                        sb_value2[sb_rear_next] <= value2;
                         sb_imm[sb_rear_next] <= dec_imm;
                         sb_rob_id[sb_rear_next] <= dec_rob_id;
                         sb_age[sb_rear_next] <= age_cnt;

@@ -60,6 +60,8 @@ module cpu (
     wire [                      3:0] dec_ready;
     wire [  `ROB_TYPE_NUM_WIDTH-1:0] dec_rob_type;
     wire [       `REG_NUM_WIDTH-1:0] dec_dest;  // for rob, rf
+    wire [       `REG_NUM_WIDTH-1:0] dec_rs1;
+    wire [       `REG_NUM_WIDTH-1:0] dec_rs2;
     wire [                     31:0] dec_result_value;
     wire [                     31:0] dec_instr_addr;
     wire [                     31:0] dec_jump_addr;
@@ -67,15 +69,10 @@ module cpu (
     wire                             dec_is_jump;
     wire [`CALC_OP_L1_NUM_WIDTH-1:0] dec_calc_op_L1;  // for rs
     wire                             dec_calc_op_L2;  // for rs
-    wire [        `ROB_SIZE_WIDTH:0] dec_dependency1;
-    wire [        `ROB_SIZE_WIDTH:0] dec_dependency2;
-    wire [                     31:0] dec_value1;
-    wire [                     31:0] dec_value2;
+    wire                             dec_is_imm;
     wire [                     31:0] dec_imm;  // for lsb (store)
     wire [      `ROB_SIZE_WIDTH-1:0] dec_rob_id;  // also for rf as dependency
     wire [  `MEM_TYPE_NUM_WIDTH-1:0] dec_mem_type;  // for lsb
-    wire [       `REG_NUM_WIDTH-1:0] dec_rs1;
-    wire [       `REG_NUM_WIDTH-1:0] dec_rs2;
 
     // rob
     wire                             rob2rf_ready;
@@ -166,7 +163,7 @@ module cpu (
         .rf_value_jalr    (rf_value_jalr),
         .fetch_enable_out (if2ic_fetch_enable),
         .pc_out           (if_pc),
-        .rs_jalr_out      (if2rf_rs_jalr)
+        .rf_jalr_out      (if2rf_rs_jalr)
     );
 
     // predictor pred0 (
@@ -195,6 +192,8 @@ module cpu (
         .dec_ready       (dec_ready),
         .rob_type_out    (dec_rob_type),
         .dest_out        (dec_dest),
+        .rs1_out         (dec_rs1),
+        .rs2_out         (dec_rs2),
         .result_value_out(dec_result_value),
         .instr_addr_out  (dec_instr_addr),
         .jump_addr_out   (dec_jump_addr),
@@ -202,29 +201,16 @@ module cpu (
         .is_jump_out     (dec_is_jump),
         .calc_op_L1_out  (dec_calc_op_L1),
         .calc_op_L2_out  (dec_calc_op_L2),
-        .dependency1_out (dec_dependency1),
-        .dependency2_out (dec_dependency2),
-        .value1_out      (dec_value1),
-        .value2_out      (dec_value2),
+        .is_imm_out      (dec_is_imm),
         .imm_out         (dec_imm),
         .rob_id_out      (dec_rob_id),
         .mem_type_out    (dec_mem_type),
         // combinatorial logic
         .rob_next_rob_id (rob_next_rob_id),
-        .rf_dependency1  (rf_dependency1),
-        .rf_dependency2  (rf_dependency2),
-        .rf_value1       (rf_value1),
-        .rf_value2       (rf_value2),
-        .rob_is_found_1  (rob_is_found_1),
-        .rob_value1      (rob_value1),
-        .rob_is_found_2  (rob_is_found_2),
-        .rob_value2      (rob_value2),
         .rob_full        (rob_full),
         .rs_full         (rs_full),
         .lb_full         (lb_full),
-        .sb_full         (sb_full),
-        .rs1_out         (dec_rs1),
-        .rs2_out         (dec_rs2)
+        .sb_full         (sb_full)
     );
 
     rob rob0 (
@@ -280,10 +266,6 @@ module cpu (
         .rdy_in           (rdy_in),
         .dec_valid        (dec_ready),
         .dec_mem_type     (dec_mem_type),
-        .dec_value1       (dec_value1),
-        .dec_value2       (dec_value2),
-        .dec_dependency1  (dec_dependency1),
-        .dec_dependency2  (dec_dependency2),
         .dec_imm          (dec_imm),
         .dec_rob_id       (dec_rob_id),
         .alu_valid        (alu_ready),
@@ -304,6 +286,14 @@ module cpu (
         .sb2rob_dest      (sb2rob_dest),
         .sb2rob_value     (sb2rob_value),
         // combinatorial logic
+        .rf_value1        (rf_value1),
+        .rf_value2        (rf_value2),
+        .rf_dependency1   (rf_dependency1),
+        .rf_dependency2   (rf_dependency2),
+        .rob_value1       (rob_value1),
+        .rob_value2       (rob_value2),
+        .rob_is_found_1   (rob_is_found_1),
+        .rob_is_found_2   (rob_is_found_2),
         .lb_full_out      (lb_full),
         .sb_full_out      (sb_full)
     );
@@ -320,13 +310,11 @@ module cpu (
         .mem_value        (mem_out),
         .mem_dependency   (mem_dependency),
         .dec_valid        (dec_ready),
-        .calc_op_L1_in    (dec_calc_op_L1),
-        .calc_op_L2_in    (dec_calc_op_L2),
-        .value1_in        (dec_value1),
-        .value2_in        (dec_value2),
-        .query1_in        (dec_dependency1),
-        .query2_in        (dec_dependency2),
-        .new_rob_id_in    (dec_rob_id),
+        .dec_calc_op_L1   (dec_calc_op_L1),
+        .dec_calc_op_L2   (dec_calc_op_L2),
+        .dec_new_rob_id   (dec_rob_id),
+        .dec_is_imm       (dec_is_imm),
+        .dec_imm          (dec_imm),
         .rs2alu_ready     (rs2alu_ready),
         .rs2alu_op_L1     (rs2alu_op_L1),
         .rs2alu_op_L2     (rs2alu_op_L2),
@@ -334,6 +322,14 @@ module cpu (
         .rs2alu_opr2      (rs2alu_opr2),
         .rs2alu_dependency(rs2alu_dependency),
         // combinatorial logic
+        .rf_value1        (rf_value1),
+        .rf_value2        (rf_value2),
+        .rf_dependency1   (rf_dependency1),
+        .rf_dependency2   (rf_dependency2),
+        .rob_value1       (rob_value1),
+        .rob_value2       (rob_value2),
+        .rob_is_found_1   (rob_is_found_1),
+        .rob_is_found_2   (rob_is_found_2),
         .station_full_out (rs_full)
     );
 
@@ -408,11 +404,11 @@ module cpu (
         .rob_value      (rob_value),
         .rob_dependency (rob_dependency),
         .dec_valid      (dec_ready),
+        .dec_rs1        (dec_rs1),
+        .dec_rs2        (dec_rs2),
         .dec_rd         (dec_dest),
         .dec_dependency ({1'b0, dec_rob_id}),
         // combinatorial logic
-        .dec_rs1        (dec_rs1),
-        .dec_rs2        (dec_rs2),
         .if_rs_jalr     (if2rf_rs_jalr),
         .value1_out     (rf_value1),
         .value2_out     (rf_value2),

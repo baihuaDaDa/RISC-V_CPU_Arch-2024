@@ -28,12 +28,10 @@ module dec (
     output reg                             calc_op_L2_out,    // for rs
     output reg                             is_imm_out,        // for jalr, I-type
     output reg [                     31:0] imm_out,           // for load, store, jalr, I-type
-    output reg [      `ROB_SIZE_WIDTH-1:0] rob_id_out,        // also for rf as dependency
     output reg [  `MEM_TYPE_NUM_WIDTH-1:0] mem_type_out,      // for lsb
 
     // combinatorial logic
     output wire [                3:0] dec_ready,       // [rf|lsb|rs|rob], 1 for ready
-    input       [`ROB_SIZE_WIDTH-1:0] rob_next_rob_id,
 
     input rob_full,
     input rs_full,
@@ -142,12 +140,9 @@ module dec (
     };  // uimm[5], uimm[4:2|7:6]
     wire [31:0] imm_C_SWSP = {if_instr[8:7], if_instr[12:9], 2'b00};  // uimm[5:2|7:6]
 
-    // assign rs1_out = 0;
-    // assign rs2_out = 0;
-
     reg [3:0] tmp_dec_ready;
 
-    assign dec_ready = tmp_dec_ready & {4{is_stall_out}};
+    assign dec_ready = tmp_dec_ready & {4{!is_stall_out}};
 
     always @(posedge clk_in) begin
         if (rst_in !== 1'b0) begin
@@ -164,7 +159,6 @@ module dec (
             rs2_out <= 0;
             is_imm_out <= 0;
             imm_out <= 0;
-            rob_id_out <= 0;
             mem_type_out <= 0;
             tmp_dec_ready <= 4'b0000;
             is_stall_out <= 0;
@@ -184,7 +178,6 @@ module dec (
                 endcase
             end else if (!need_flush_in && if_valid) begin
                 instr_addr_out <= if_instr_addr;
-                rob_id_out <= rob_next_rob_id;
                 jump_addr_out <= if_jump_addr;
                 is_jump_out <= if_is_jump;
                 // categorize
@@ -503,10 +496,10 @@ module dec (
                                 imm_out <= (sub_op == 3'b101 || sub_op == 3'b001 ? imm_5_shamt : imm_12_I);  // I-type doesn't have SUBI
                             end
                             OP_REG: begin
-                                tmp_dec_ready <= 4'b1011;
-                                is_stall_out <= rob_full || rs_full;
-                                rob_type_out <= ROB_TYPE_REG;
-                                rob_state_out <= ROB_STATE_EXECUTE;
+                                tmp_dec_ready  <= 4'b1011;
+                                is_stall_out   <= rob_full || rs_full;
+                                rob_type_out   <= ROB_TYPE_REG;
+                                rob_state_out  <= ROB_STATE_EXECUTE;
                                 calc_op_L1_out <= {1'b0, sub_op};
                                 calc_op_L2_out <= calc_op_L2;
                             end

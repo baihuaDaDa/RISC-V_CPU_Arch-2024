@@ -53,7 +53,7 @@ module rob (
     output wire                      is_found_2_out,
     output wire [              31:0] value2_out,
     output wire                      buffer_full_out,
-    output wire [ROB_SIZE_WIDTH-1:0] next_rob_id_out
+    output wire [ROB_SIZE_WIDTH-1:0] rear_next_out
 );
 
     localparam ROB_SIZE_WIDTH = `ROB_SIZE_WIDTH;
@@ -91,10 +91,8 @@ module rob (
 
     integer                           i;
 
-    wire    [     ROB_SIZE_WIDTH-1:0] rear_next;
     wire    [     ROB_SIZE_WIDTH-1:0] front;
 
-    assign rear_next = (buffer_rear + 1) & ROB_SIZE;
     assign front = (buffer_head + 1) & ROB_SIZE;
 
     assign value1_out = (alu_valid && alu_dependency == rf_dependency1) ? alu_value :
@@ -108,7 +106,7 @@ module rob (
                         (mem_valid && mem_dependency == rf_dependency2) ||
                         (buffer_rob_state[rf_dependency2] == ROB_STATE_WRITE_RESULT);
     assign buffer_full_out = (buffer_size + dec_valid[0] == ROB_SIZE);
-    assign next_rob_id_out = (buffer_rear + 1 + dec_valid[0]) & ROB_SIZE;
+    assign rear_next_out = (buffer_rear + 1) & ROB_SIZE;
 
     // assign value1_out = 0;
     // assign is_found_1_out = 0;
@@ -169,14 +167,14 @@ module rob (
                 need_flush_out <= 0;
             end else begin
                 if (dec_valid[0]) begin
-                    buffer_rear <= rear_next;
-                    buffer_rob_type[rear_next] <= dec_rob_type;
-                    buffer_dest_reg[rear_next] <= dec_dest;
-                    buffer_value[rear_next] <= dec_value;
-                    buffer_instr_addr[rear_next] <= dec_instr_addr;
-                    buffer_jump_addr[rear_next] <= dec_jump_addr;
-                    buffer_rob_state[rear_next] <= dec_rob_state;
-                    buffer_is_jump[rear_next] <= dec_is_jump;
+                    buffer_rear <= rear_next_out;
+                    buffer_rob_type[rear_next_out] <= dec_rob_type;
+                    buffer_dest_reg[rear_next_out] <= dec_dest;
+                    buffer_value[rear_next_out] <= dec_value;
+                    buffer_instr_addr[rear_next_out] <= dec_instr_addr;
+                    buffer_jump_addr[rear_next_out] <= dec_jump_addr;
+                    buffer_rob_state[rear_next_out] <= dec_rob_state;
+                    buffer_is_jump[rear_next_out] <= dec_is_jump;
                 end
                 if (alu_valid) begin
                     buffer_value[alu_dependency] <= alu_value;

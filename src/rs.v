@@ -19,7 +19,6 @@ module rs (
     input [                     3:0] dec_valid,
     input [CALC_OP_L1_NUM_WIDTH-1:0] dec_calc_op_L1,
     input                            dec_calc_op_L2,
-    input [     `ROB_SIZE_WIDTH-1:0] dec_new_rob_id,
     input                            dec_is_imm,
     input [                    31:0] dec_imm,
 
@@ -32,10 +31,11 @@ module rs (
     output reg                            rs2alu_ready,
 
     // combinatorial logic
-    input [             31:0] rf_value1,
-    input [             31:0] rf_value2,
-    input [`ROB_SIZE_WIDTH:0] rf_dependency1,
-    input [`ROB_SIZE_WIDTH:0] rf_dependency2,
+    input [`ROB_SIZE_WIDTH-1:0] rob_new_rob_id,
+    input [               31:0] rf_value1,
+    input [               31:0] rf_value2,
+    input [  `ROB_SIZE_WIDTH:0] rf_dependency1,
+    input [  `ROB_SIZE_WIDTH:0] rf_dependency2,
 
     input [31:0] rob_value1,
     input [31:0] rob_value2,
@@ -130,7 +130,7 @@ module rs (
                                 station_q2[i] <= dependency2;
                                 station_v2[i] <= value2;
                             end
-                            station_rob_id[i] <= dec_new_rob_id;
+                            station_rob_id[i] <= rob_new_rob_id;
                             station_busy[i]   <= 1;
                             break_flag = 1;
                         end

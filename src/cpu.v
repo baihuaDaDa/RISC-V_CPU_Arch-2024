@@ -71,7 +71,6 @@ module cpu (
     wire                             dec_calc_op_L2;  // for rs
     wire                             dec_is_imm;
     wire [                     31:0] dec_imm;  // for lsb (store)
-    wire [      `ROB_SIZE_WIDTH-1:0] dec_rob_id;  // also for rf as dependency
     wire [  `MEM_TYPE_NUM_WIDTH-1:0] dec_mem_type;  // for lsb
 
     // rob
@@ -94,7 +93,7 @@ module cpu (
     wire                             rob_is_found_2;
     wire [                     31:0] rob_value2;
     wire                             rob_full;
-    wire [      `ROB_SIZE_WIDTH-1:0] rob_next_rob_id;
+    wire [      `ROB_SIZE_WIDTH-1:0] rob_rear_next;  // also for rf as dependency
 
     // lsb
     wire                             lb2mem_ready;
@@ -203,10 +202,8 @@ module cpu (
         .calc_op_L2_out  (dec_calc_op_L2),
         .is_imm_out      (dec_is_imm),
         .imm_out         (dec_imm),
-        .rob_id_out      (dec_rob_id),
         .mem_type_out    (dec_mem_type),
         // combinatorial logic
-        .rob_next_rob_id (rob_next_rob_id),
         .rob_full        (rob_full),
         .rs_full         (rs_full),
         .lb_full         (lb_full),
@@ -257,7 +254,7 @@ module cpu (
         .is_found_2_out (rob_is_found_2),
         .value2_out     (rob_value2),
         .buffer_full_out(rob_full),
-        .next_rob_id_out(rob_next_rob_id)
+        .rear_next_out  (rob_rear_next)
     );
 
     lsb lsb0 (
@@ -267,7 +264,6 @@ module cpu (
         .dec_valid        (dec_ready),
         .dec_mem_type     (dec_mem_type),
         .dec_imm          (dec_imm),
-        .dec_rob_id       (dec_rob_id),
         .alu_valid        (alu_ready),
         .alu_dependency   (alu_dependency),
         .alu_value        (alu_value),
@@ -286,6 +282,7 @@ module cpu (
         .sb2rob_dest      (sb2rob_dest),
         .sb2rob_value     (sb2rob_value),
         // combinatorial logic
+        .rob_new_rob_id   (rob_rear_next),
         .rf_value1        (rf_value1),
         .rf_value2        (rf_value2),
         .rf_dependency1   (rf_dependency1),
@@ -312,7 +309,6 @@ module cpu (
         .dec_valid        (dec_ready),
         .dec_calc_op_L1   (dec_calc_op_L1),
         .dec_calc_op_L2   (dec_calc_op_L2),
-        .dec_new_rob_id   (dec_rob_id),
         .dec_is_imm       (dec_is_imm),
         .dec_imm          (dec_imm),
         .rs2alu_ready     (rs2alu_ready),
@@ -322,6 +318,7 @@ module cpu (
         .rs2alu_opr2      (rs2alu_opr2),
         .rs2alu_dependency(rs2alu_dependency),
         // combinatorial logic
+        .rob_new_rob_id   (rob_rear_next),
         .rf_value1        (rf_value1),
         .rf_value2        (rf_value2),
         .rf_dependency1   (rf_dependency1),
@@ -407,8 +404,8 @@ module cpu (
         .dec_rs1        (dec_rs1),
         .dec_rs2        (dec_rs2),
         .dec_rd         (dec_dest),
-        .dec_dependency ({1'b0, dec_rob_id}),
         // combinatorial logic
+        .rob_new_dependency ({1'b0, rob_rear_next}),
         .if_rs_jalr     (if2rf_rs_jalr),
         .value1_out     (rf_value1),
         .value2_out     (rf_value2),

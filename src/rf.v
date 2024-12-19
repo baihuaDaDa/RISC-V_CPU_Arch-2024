@@ -14,11 +14,11 @@ module rf (
 
     input [              3:0] dec_valid,
     input [REG_NUM_WIDTH-1:0] dec_rd,
-    input [`ROB_SIZE_WIDTH:0] dec_dependency,
     input [REG_NUM_WIDTH-1:0] dec_rs1,
     input [REG_NUM_WIDTH-1:0] dec_rs2,
 
     // combinatorial logic
+    input [`ROB_SIZE_WIDTH:0] rob_new_dependency,
     input [REG_NUM_WIDTH-1:0] if_rs_jalr,
 
     output wire [             31:0] value1_out,
@@ -71,7 +71,7 @@ module rf (
                     end
                 end
                 if (dec_valid[3] && dec_rd) begin
-                    reg_dependency[dec_rd] <= dec_dependency;
+                    reg_dependency[dec_rd] <= rob_new_dependency;
                 end
             end
         end

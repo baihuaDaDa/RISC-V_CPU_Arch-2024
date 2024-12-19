@@ -8,7 +8,6 @@ module lsb (
     input [                   3:0] dec_valid,
     input [MEM_TYPE_NUM_WIDTH-1:0] dec_mem_type,
     input [                  31:0] dec_imm,
-    input [   `ROB_SIZE_WIDTH-1:0] dec_rob_id,
 
     input                     alu_valid,
     input [`ROB_SIZE_WIDTH:0] alu_dependency,
@@ -34,15 +33,16 @@ module lsb (
     output reg                       sb2rob_ready,
 
     // combinatorial logic
-    input [                  31:0] rf_value1,
-    input [                  31:0] rf_value2,
-    input [     `ROB_SIZE_WIDTH:0] rf_dependency1,
-    input [     `ROB_SIZE_WIDTH:0] rf_dependency2,
+    input [`ROB_SIZE_WIDTH-1:0] rob_new_rob_id,
+    input [               31:0] rf_value1,
+    input [               31:0] rf_value2,
+    input [  `ROB_SIZE_WIDTH:0] rf_dependency1,
+    input [  `ROB_SIZE_WIDTH:0] rf_dependency2,
 
     input [31:0] rob_value1,
     input [31:0] rob_value2,
-    input rob_is_found_1,
-    input rob_is_found_2,
+    input        rob_is_found_1,
+    input        rob_is_found_2,
 
     output wire lb_full_out,
     output wire sb_full_out
@@ -190,7 +190,7 @@ module lsb (
                                 lb_value1[i] <= value1;
                                 lb_value2[i] <= dec_imm;
                                 lb_dependency1[i] <= dependency1;
-                                lb_rob_id[i] <= dec_rob_id;
+                                lb_rob_id[i] <= rob_new_rob_id;
                                 lb_age[i] <= age_cnt;
                                 break_flag = 1;
                             end
@@ -201,7 +201,7 @@ module lsb (
                         sb_value1[sb_rear_next] <= value1;
                         sb_value2[sb_rear_next] <= value2;
                         sb_imm[sb_rear_next] <= dec_imm;
-                        sb_rob_id[sb_rear_next] <= dec_rob_id;
+                        sb_rob_id[sb_rear_next] <= rob_new_rob_id;
                         sb_age[sb_rear_next] <= age_cnt;
                         sb_rear <= sb_rear_next;
                     end

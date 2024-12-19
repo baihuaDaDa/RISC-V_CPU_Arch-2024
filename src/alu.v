@@ -42,6 +42,8 @@ module alu (
     always @(posedge clk_in) begin
         if (rst_in !== 1'b0) begin
             ready_out <= 0;
+            value_out <= 0;
+            dependency_out <= -1;
         end else if (!rdy_in) begin
             /* do nothing */
         end else begin

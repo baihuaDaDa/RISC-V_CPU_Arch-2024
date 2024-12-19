@@ -25,7 +25,7 @@ module instr_fetcher (
 
     output wire                      fetch_enable_out,
     output wire [              31:0] pc_out,
-    output wire [`REG_NUM_WIDTH-1:0] rs_jalr_out
+    output wire [`REG_NUM_WIDTH-1:0] rf_jalr_out
 );
 
     reg [31:0] pc;
@@ -52,13 +52,17 @@ module instr_fetcher (
 
     assign fetch_enable_out = !need_flush_in && !is_stall_in && !ic_miss_ready;
     assign pc_out = pc;
-    assign rs_jalr_out = (ic_hit || ic_miss_ready) && ic_instr[1:0] == 2'b11 && ic_instr[6:2] == 5'b11001 ? ic_instr[19:15] :
+    assign rf_jalr_out = (ic_hit || ic_miss_ready) && ic_instr[1:0] == 2'b11 && ic_instr[6:2] == 5'b11001 ? ic_instr[19:15] :
                          (ic_hit || ic_miss_ready) && ic_instr[1:0] != 2'b11 && ic_instr[15:13] == 3'b100 && ic_instr[6:2] == 0 ? ic_instr[11:7] : 5'b0;
 
     always @(posedge clk_in) begin
         if (rst_in !== 1'b0) begin
-            if2dec_ready <= 0;
             pc <= 0;
+            if2dec_ready <= 0;
+            if2dec_instr <= 0;
+            if2dec_instr_addr <= 0;
+            if2dec_is_jump <= 0;
+            if2dec_jump_addr <= 0;
         end else if (!rdy_in) begin
             /* do nothing */
         end else begin

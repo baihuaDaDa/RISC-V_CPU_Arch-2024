@@ -59,8 +59,11 @@ module icache (
     always @(posedge clk_in) begin
         if (rst_in !== 1'b0) begin
             miss_out <= 0;
+            instr_addr_out <= 0;
             for (i = 0; i < CACHE_LINE_SIZE; i = i + 1) begin
                 valid[i] <= 0;
+                tag[i]   <= 0;
+                data[i]  <= 0;
             end
         end else if (!rdy_in) begin
             /* do nothing */

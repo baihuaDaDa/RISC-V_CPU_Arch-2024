@@ -98,10 +98,22 @@ module mem_controller (
 
     always @(posedge clk_in) begin
         if (rst_in !== 1'b0) begin
+            byte_a <= 0;
+            byte_din <= 0;
+            byte_wr <= 0;
             dout_ready <= 0;
             iout_ready <= 0;
-            work_cycle <= 3'b000;
+            dependency_out <= -1;
+            tmp_result <= 0;
             working <= 0;
+            work_cycle <= 3'b000;
+            work_time <= 2'b00;
+            tmp_din <= 0;
+            tmp_ain <= 0;
+            tmp_lsb_dependency <= -1;
+            tmp_wr <= 0;
+            tmp_is_unsigned <= 0;
+            tmp_is_instr <= 0;
         end else if (!rdy_in) begin
             /* do nothing */
         end else begin
@@ -110,10 +122,12 @@ module mem_controller (
                 dout_ready <= 0;
                 iout_ready <= 0;
                 working <= 0;
+                byte_wr <= 0;
             end else begin
                 if (!cur_working) begin
                     dout_ready <= 0;
                     iout_ready <= 0;
+                    byte_wr <= 0;
                     // $fdisplay(handle1, "mem_controller: not working");
                 end else begin
                     // init
@@ -152,6 +166,7 @@ module mem_controller (
                                 working <= 0;
                                 dout_ready <= !cur_wr;
                                 dependency_out <= tmp_lsb_dependency;
+                                byte_wr <= 0;
                             end
                         end
                         3'b010: begin
@@ -167,6 +182,7 @@ module mem_controller (
                                 end
                                 work_cycle <= 3'b000;
                                 working <= 0;
+                                byte_wr <= 0;
                             end else begin
                                 work_cycle <= 3'b011;
                                 byte_a <= cur_ain + 2;
@@ -187,6 +203,7 @@ module mem_controller (
                             tmp_result[23:16] <= byte_dout;
                             working <= 0;
                             work_cycle <= 3'b000;
+                            byte_wr <= 0;
                             if (tmp_is_instr) begin
                                 iout_ready <= 1;
                             end else begin

@@ -1,5 +1,5 @@
-`define ROB_SIZE_WIDTH 5
-`define ROB_SIZE 31 // LoopQueue 需要预留一个空位置
+`define ROB_SIZE_WIDTH 1
+`define ROB_SIZE 1 // LoopQueue 需要预留一个空位置
 `define ROB_TYPE_NUM_WIDTH 3
 `define ROB_STATE_NUM_WIDTH 2
 

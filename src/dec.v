@@ -31,7 +31,7 @@ module dec (
     output reg [  `MEM_TYPE_NUM_WIDTH-1:0] mem_type_out,      // for lsb
 
     // combinatorial logic
-    output wire [                3:0] dec_ready,       // [rf|lsb|rs|rob], 1 for ready
+    output wire [3:0] dec_ready,  // [rf|lsb|rs|rob], 1 for ready
 
     input rob_full,
     input rs_full,
@@ -165,350 +165,356 @@ module dec (
         end else if (!rdy_in) begin
             /* do nothing */
         end else begin
-            if (is_stall_out) begin
-                case (tmp_dec_ready)
-                    4'b1001: is_stall_out <= rob_full;
-                    4'b1011, 4'b0011: is_stall_out <= rob_full || rs_full;
-                    4'b0101: is_stall_out <= rob_full || sb_full;
-                    4'b1101: is_stall_out <= rob_full || lb_full;
-                    default: begin
-                        $display("dec error.");
-                        $finish;
-                    end
-                endcase
-            end else if (!need_flush_in && if_valid) begin
-                instr_addr_out <= if_instr_addr;
-                jump_addr_out <= if_jump_addr;
-                is_jump_out <= if_is_jump;
-                // categorize
-                case (is_C)
-                    2'b00: begin
-                        case (sub_op_C_L1)
-                            3'b000: begin  // OP_IMM
-                                tmp_dec_ready <= 4'b1011;
-                                is_stall_out <= rob_full || rs_full;
-                                rob_type_out <= ROB_TYPE_REG;
-                                rob_state_out <= ROB_STATE_EXECUTE;
-                                dest_out <= rs2_C_3;
-                                calc_op_L1_out <= CALC_ADD_SUB;
-                                calc_op_L2_out <= 1'b0;
-                                rs1_out <= 2;
-                                rs2_out <= 0;
-                                is_imm_out <= 1;
-                                imm_out <= imm_C_ADDI4SPN;
-                            end  // C.ADDI4SPN
-                            3'b010: begin  // OP_LOAD
-                                tmp_dec_ready <= 4'b1101;
-                                is_stall_out <= rob_full || lb_full;
-                                rob_type_out <= ROB_TYPE_REG;
-                                rob_state_out <= ROB_STATE_EXECUTE;
-                                dest_out <= rs2_C_3;
-                                mem_type_out <= MEM_LW;
-                                rs1_out <= rs1_C_3;
-                                rs2_out <= 0;
-                                is_imm_out <= 0;
-                                imm_out <= imm_C_LSW;
-                            end  // C.LW
-                            3'b110: begin  // OP_STORE
-                                tmp_dec_ready <= 4'b0101;
-                                is_stall_out <= rob_full || sb_full;
-                                rob_type_out <= sub_op;
-                                rob_state_out <= ROB_STATE_EXECUTE;
-                                mem_type_out <= MEM_SW;
-                                rs1_out <= rs1_C_3;
-                                rs2_out <= rs2_C_3;
-                                is_imm_out <= 0;
-                                imm_out <= imm_C_LSW;
-                            end  // C.SW
-                        endcase
-                    end
-                    2'b01: begin
-                        case (sub_op_C_L1)
-                            3'b000, 3'b010: begin  // OP_IMM
-                                tmp_dec_ready <= 4'b1011;
-                                is_stall_out <= rob_full || rs_full;
-                                rob_type_out <= ROB_TYPE_REG;
-                                rob_state_out <= ROB_STATE_EXECUTE;
-                                dest_out <= rs1_C_5;
-                                calc_op_L1_out <= CALC_ADD_SUB;
-                                calc_op_L2_out <= 1'b0;
-                                rs1_out <= sub_op_C_L1 == 3'b000 ? rs1_C_5 : 0;  // C.LI rs1 = x0
-                                rs2_out <= 0;
-                                is_imm_out <= 1;
-                                imm_out <= imm_C_I;
-                            end  // C.ADDI, C.LI
-                            3'b001: begin  // OP_JAL
-                                tmp_dec_ready <= 4'b1001;
-                                is_stall_out <= rob_full;
-                                rob_type_out <= ROB_TYPE_REG;
-                                rob_state_out <= ROB_STATE_WRITE_RESULT;
-                                dest_out <= 1;
-                                result_value_out <= if_instr_addr + 4;  // TODO: +4?
-                                is_imm_out <= 0;
-                            end  // C.JAL
-                            3'b011: begin
-                                if (rs1_C_5 == 2) begin  // OP_IMM
+            if (need_flush_in) begin
+                is_stall_out  <= 0;
+                tmp_dec_ready <= 4'b0000;
+            end else begin
+                if (is_stall_out) begin
+                    case (tmp_dec_ready)
+                        4'b1001: is_stall_out <= rob_full;
+                        4'b1011, 4'b0011: is_stall_out <= rob_full || rs_full;
+                        4'b0101: is_stall_out <= rob_full || sb_full;
+                        4'b1101: is_stall_out <= rob_full || lb_full;
+                        default: begin
+                            $display("dec error.");
+                            $finish;
+                        end
+                    endcase
+                end else if (!if_valid) begin
+                    is_stall_out  <= 0;
+                    tmp_dec_ready <= 4'b0000;
+                end else begin
+                    instr_addr_out <= if_instr_addr;
+                    jump_addr_out <= if_jump_addr;
+                    is_jump_out <= if_is_jump;
+                    // categorize
+                    case (is_C)
+                        2'b00: begin
+                            case (sub_op_C_L1)
+                                3'b000: begin  // OP_IMM
                                     tmp_dec_ready <= 4'b1011;
                                     is_stall_out <= rob_full || rs_full;
                                     rob_type_out <= ROB_TYPE_REG;
                                     rob_state_out <= ROB_STATE_EXECUTE;
-                                    dest_out <= 2;
+                                    dest_out <= rs2_C_3;
                                     calc_op_L1_out <= CALC_ADD_SUB;
                                     calc_op_L2_out <= 1'b0;
                                     rs1_out <= 2;
                                     rs2_out <= 0;
                                     is_imm_out <= 1;
-                                    imm_out <= imm_C_ADDI16SP;
-                                end  // C.ADDI16SP
-                                else begin  // OP_LUI
+                                    imm_out <= imm_C_ADDI4SPN;
+                                end  // C.ADDI4SPN
+                                3'b010: begin  // OP_LOAD
+                                    tmp_dec_ready <= 4'b1101;
+                                    is_stall_out <= rob_full || lb_full;
+                                    rob_type_out <= ROB_TYPE_REG;
+                                    rob_state_out <= ROB_STATE_EXECUTE;
+                                    dest_out <= rs2_C_3;
+                                    mem_type_out <= MEM_LW;
+                                    rs1_out <= rs1_C_3;
+                                    rs2_out <= 0;
+                                    is_imm_out <= 0;
+                                    imm_out <= imm_C_LSW;
+                                end  // C.LW
+                                3'b110: begin  // OP_STORE
+                                    tmp_dec_ready <= 4'b0101;
+                                    is_stall_out <= rob_full || sb_full;
+                                    rob_type_out <= sub_op;
+                                    rob_state_out <= ROB_STATE_EXECUTE;
+                                    mem_type_out <= MEM_SW;
+                                    rs1_out <= rs1_C_3;
+                                    rs2_out <= rs2_C_3;
+                                    is_imm_out <= 0;
+                                    imm_out <= imm_C_LSW;
+                                end  // C.SW
+                            endcase
+                        end
+                        2'b01: begin
+                            case (sub_op_C_L1)
+                                3'b000, 3'b010: begin  // OP_IMM
+                                    tmp_dec_ready <= 4'b1011;
+                                    is_stall_out <= rob_full || rs_full;
+                                    rob_type_out <= ROB_TYPE_REG;
+                                    rob_state_out <= ROB_STATE_EXECUTE;
+                                    dest_out <= rs1_C_5;
+                                    calc_op_L1_out <= CALC_ADD_SUB;
+                                    calc_op_L2_out <= 1'b0;
+                                    rs1_out <= sub_op_C_L1 == 3'b000 ? rs1_C_5 : 0;  // C.LI rs1 = x0
+                                    rs2_out <= 0;
+                                    is_imm_out <= 1;
+                                    imm_out <= imm_C_I;
+                                end  // C.ADDI, C.LI
+                                3'b001: begin  // OP_JAL
                                     tmp_dec_ready <= 4'b1001;
                                     is_stall_out <= rob_full;
                                     rob_type_out <= ROB_TYPE_REG;
                                     rob_state_out <= ROB_STATE_WRITE_RESULT;
-                                    dest_out <= rs1_C_5;
-                                    result_value_out <= imm_C_LUI;
+                                    dest_out <= 1;
+                                    result_value_out <= if_instr_addr + 4;  // TODO: +4?
                                     is_imm_out <= 0;
-                                end  // C.LUI
-                            end
-                            3'b100: begin
-                                case (sub_op_C_L3)
-                                    2'b11: begin  // OP_REG
+                                end  // C.JAL
+                                3'b011: begin
+                                    if (rs1_C_5 == 2) begin  // OP_IMM
                                         tmp_dec_ready <= 4'b1011;
                                         is_stall_out <= rob_full || rs_full;
                                         rob_type_out <= ROB_TYPE_REG;
                                         rob_state_out <= ROB_STATE_EXECUTE;
-                                        dest_out <= rs1_C_3;
-                                        case (sub_op_C_L4)
-                                            2'b00: calc_op_L1_out <= CALC_ADD_SUB;  // C.SUB
-                                            2'b01: calc_op_L1_out <= CALC_XOR;  // C.XOR
-                                            2'b10: calc_op_L1_out <= CALC_OR;  // C.OR
-                                            2'b11: calc_op_L1_out <= CALC_AND;  // C.AND
-                                        endcase
-                                        calc_op_L2_out <= sub_op_C_L4 == 2'b00 ? 1'b1 : 1'b0;  // C.SUB 1
-                                        rs1_out <= rs1_C_3;
-                                        rs2_out <= rs2_C_3;
-                                        is_imm_out <= 0;
-                                    end
-                                    default: begin  // OP_IMM
-                                        tmp_dec_ready <= 4'b1011;
-                                        is_stall_out <= rob_full || rs_full;
-                                        rob_type_out <= ROB_TYPE_REG;
-                                        rob_state_out <= ROB_STATE_EXECUTE;
-                                        dest_out <= rs1_C_3;
-                                        calc_op_L1_out <= sub_op_C_L3 == 2'b10 ? CALC_AND : CALC_SRL_SRA;
-                                        calc_op_L2_out <= sub_op_C_L3 == 2'b01 ? 1'b1 : 1'b0;  // C.SRAI 1
-                                        rs1_out <= rs1_C_3;
+                                        dest_out <= 2;
+                                        calc_op_L1_out <= CALC_ADD_SUB;
+                                        calc_op_L2_out <= 1'b0;
+                                        rs1_out <= 2;
                                         rs2_out <= 0;
                                         is_imm_out <= 1;
-                                        imm_out <= sub_op_C_L3 == 2'b10 ? imm_C_I : imm_C_UI;  // C.ANDI signed
-                                    end  // C.SRLI, C.SRAI, C.ANDI
-                                endcase
-                            end
-                            3'b101: begin  // OP_JAL
-                                tmp_dec_ready <= 4'b1001;
-                                is_stall_out <= rob_full;
-                                rob_type_out <= ROB_TYPE_REG;
-                                rob_state_out <= ROB_STATE_WRITE_RESULT;
-                                dest_out <= 0;
-                                result_value_out <= if_instr_addr + 4;  // TODO: +4?
-                                is_imm_out <= 0;
-                            end  // C.J
-                            3'b110: begin  // OP_BRANCH
-                                tmp_dec_ready <= 4'b0011;
-                                is_stall_out <= rob_full || rs_full;
-                                rob_type_out <= ROB_TYPE_BRANCH;
-                                rob_state_out <= ROB_STATE_EXECUTE;
-                                calc_op_L1_out <= CALC_SEQ;
-                                calc_op_L2_out <= 0;
-                                rs1_out <= rs1_C_3;
-                                rs2_out <= 0;
-                                is_imm_out <= 0;
-                            end  // C.BEQZ
-                            3'b111: begin  // OP_BRANCH
-                                tmp_dec_ready <= 4'b0011;
-                                is_stall_out <= rob_full || rs_full;
-                                rob_type_out <= ROB_TYPE_BRANCH;
-                                rob_state_out <= ROB_STATE_EXECUTE;
-                                calc_op_L1_out <= CALC_SNE;
-                                calc_op_L2_out <= 0;
-                                rs1_out <= rs1_C_3;
-                                rs2_out <= 0;
-                                is_imm_out <= 0;
-                            end  // C.BNEZ
-                        endcase
-                    end
-                    2'b10: begin
-                        case (sub_op_C_L1)
-                            3'b000: begin  // OP_IMM
-                                tmp_dec_ready <= 4'b1011;
-                                is_stall_out <= rob_full || rs_full;
-                                rob_type_out <= ROB_TYPE_REG;
-                                rob_state_out <= ROB_STATE_EXECUTE;
-                                dest_out <= rs1_C_5;
-                                calc_op_L1_out <= CALC_SLL;
-                                calc_op_L2_out <= 1'b0;
-                                rs1_out <= rs1_C_5;
-                                rs2_out <= 0;
-                                is_imm_out <= 1;
-                                imm_out <= imm_C_UI;
-                            end  // C.SLLI
-                            3'b010: begin  // OP_LOAD
-                                tmp_dec_ready <= 4'b1101;
-                                is_stall_out <= rob_full || lb_full;
-                                rob_type_out <= ROB_TYPE_REG;
-                                rob_state_out <= ROB_STATE_EXECUTE;
-                                dest_out <= rs1_C_5;
-                                mem_type_out <= MEM_LW;
-                                rs1_out <= 2;
-                                rs2_out <= 0;
-                                is_imm_out <= 0;
-                                imm_out <= imm_C_LWSP;
-                            end  // C.LWSP
-                            3'b100: begin
-                                case (sub_op_C_L2)
-                                    1'b0: begin
-                                        if (rs2_C_5 == 0) begin  // OP_JALR
-                                            tmp_dec_ready <= 4'b1011;
-                                            is_stall_out <= rob_full || rs_full;
-                                            rob_type_out <= ROB_TYPE_JALR;
-                                            rob_state_out <= ROB_STATE_EXECUTE;
-                                            dest_out <= 0;
-                                            calc_op_L1_out <= CALC_ADD_SUB;
-                                            calc_op_L2_out <= 0;  // ADD
-                                            rs1_out <= rs1_C_5;
-                                            rs2_out <= 0;
-                                            is_imm_out <= 1;
-                                            imm_out <= 0;
-                                        end  // C.JR
-                                        else begin  // OP_IMM
+                                        imm_out <= imm_C_ADDI16SP;
+                                    end  // C.ADDI16SP
+                                else begin  // OP_LUI
+                                        tmp_dec_ready <= 4'b1001;
+                                        is_stall_out <= rob_full;
+                                        rob_type_out <= ROB_TYPE_REG;
+                                        rob_state_out <= ROB_STATE_WRITE_RESULT;
+                                        dest_out <= rs1_C_5;
+                                        result_value_out <= imm_C_LUI;
+                                        is_imm_out <= 0;
+                                    end  // C.LUI
+                                end
+                                3'b100: begin
+                                    case (sub_op_C_L3)
+                                        2'b11: begin  // OP_REG
                                             tmp_dec_ready <= 4'b1011;
                                             is_stall_out <= rob_full || rs_full;
                                             rob_type_out <= ROB_TYPE_REG;
                                             rob_state_out <= ROB_STATE_EXECUTE;
-                                            dest_out <= rs1_C_5;
-                                            calc_op_L1_out <= CALC_ADD_SUB;
-                                            calc_op_L2_out <= 1'b0;
-                                            rs1_out <= rs2_C_5;
-                                            rs2_out <= 0;
-                                            is_imm_out <= 1;
-                                            imm_out <= 0;
-                                        end  // C.MV
-                                    end
-                                    1'b1: begin
-                                        if (rs2_C_5 == 0) begin  // OP_JALR
-                                            tmp_dec_ready <= 4'b1011;
-                                            is_stall_out <= rob_full || rs_full;
-                                            rob_type_out <= ROB_TYPE_JALR;
-                                            rob_state_out <= ROB_STATE_EXECUTE;
-                                            dest_out <= 1;
-                                            calc_op_L1_out <= CALC_ADD_SUB;
-                                            calc_op_L2_out <= 0;  // ADD
-                                            rs1_out <= rs1_C_5;
-                                            rs2_out <= 0;
-                                            is_imm_out <= 1;
-                                            imm_out <= 0;
-                                        end  // C.JALR
-                                        else begin  // OP_REG
-                                            tmp_dec_ready <= 4'b1011;
-                                            is_stall_out <= rob_full || rs_full;
-                                            rob_type_out <= ROB_TYPE_REG;
-                                            rob_state_out <= ROB_STATE_EXECUTE;
-                                            dest_out <= rs1_C_5;
-                                            calc_op_L1_out <= CALC_ADD_SUB;
-                                            calc_op_L2_out <= 0;
-                                            rs1_out <= rs1_C_5;
-                                            rs2_out <= rs2_C_5;
+                                            dest_out <= rs1_C_3;
+                                            case (sub_op_C_L4)
+                                                2'b00: calc_op_L1_out <= CALC_ADD_SUB;  // C.SUB
+                                                2'b01: calc_op_L1_out <= CALC_XOR;  // C.XOR
+                                                2'b10: calc_op_L1_out <= CALC_OR;  // C.OR
+                                                2'b11: calc_op_L1_out <= CALC_AND;  // C.AND
+                                            endcase
+                                            calc_op_L2_out <= sub_op_C_L4 == 2'b00 ? 1'b1 : 1'b0;  // C.SUB 1
+                                            rs1_out <= rs1_C_3;
+                                            rs2_out <= rs2_C_3;
                                             is_imm_out <= 0;
-                                        end  // C.ADD
-                                    end
-                                endcase
-                            end
-                            3'b110: begin  // OP_STORE
-                                tmp_dec_ready <= 4'b0101;
-                                is_stall_out <= rob_full || sb_full;
-                                rob_type_out <= sub_op;
-                                rob_state_out <= ROB_STATE_EXECUTE;
-                                mem_type_out <= MEM_SW;
-                                rs1_out <= 2;
-                                rs2_out <= rs2_C_5;
-                                is_imm_out <= 0;
-                                imm_out <= imm_C_SWSP;
-                            end  // C.SWSP
-                        endcase
-                    end
-                    2'b11: begin
-                        dest_out <= rd;
-                        rs1_out <= rs1;
-                        rs2_out <= rs2;
-                        is_imm_out <= op == OP_JALR || op == OP_IMM;
-                        case (op)
-                            OP_LUI, OP_AUIPC, OP_JAL: begin
-                                tmp_dec_ready <= 4'b1001;
-                                is_stall_out  <= rob_full;
-                                rob_type_out  <= ROB_TYPE_REG;
-                                rob_state_out <= ROB_STATE_WRITE_RESULT;
-                                case (op)
-                                    OP_LUI:   result_value_out <= imm_32_U;
-                                    OP_AUIPC: result_value_out <= imm_32_U + if_instr_addr;
-                                    OP_JAL:   result_value_out <= if_instr_addr + 4;  // TODO: +4?
-                                endcase
-                            end
-                            OP_JALR: begin
-                                tmp_dec_ready <= 4'b1011;
-                                is_stall_out <= rob_full || rs_full;
-                                rob_type_out <= ROB_TYPE_JALR;
-                                rob_state_out <= ROB_STATE_EXECUTE;
-                                calc_op_L1_out <= CALC_ADD_SUB;
-                                calc_op_L2_out <= 0;  // ADD
-                                imm_out <= imm_12_I;
-                            end
-                            OP_BRANCH: begin
-                                tmp_dec_ready <= 4'b0011;
-                                is_stall_out <= rob_full || rs_full;
-                                rob_type_out <= ROB_TYPE_BRANCH;
-                                rob_state_out <= ROB_STATE_EXECUTE;
-                                calc_op_L1_out <= sub_op == 3'b100 ? CALC_SLT : sub_op == 3'b110 ? CALC_SLTU : {1'b1, sub_op};
-                                calc_op_L2_out <= 0;
-                            end  // SLT and SLTU already exist
-                            OP_LOAD: begin
-                                tmp_dec_ready <= 4'b1101;
-                                is_stall_out <= rob_full || lb_full;
-                                rob_type_out <= ROB_TYPE_REG;
-                                rob_state_out <= ROB_STATE_EXECUTE;
-                                mem_type_out <= {1'b0, sub_op};
-                                imm_out <= imm_12_I;
-                            end
-                            OP_STORE: begin
-                                tmp_dec_ready <= 4'b0101;
-                                is_stall_out <= rob_full || sb_full;
-                                rob_type_out <= sub_op;
-                                rob_state_out <= ROB_STATE_EXECUTE;
-                                mem_type_out <= {1'b1, sub_op};
-                                imm_out <= imm_12_S;
-                            end
-                            OP_IMM: begin
-                                tmp_dec_ready <= 4'b1011;
-                                is_stall_out <= rob_full || rs_full;
-                                rob_type_out <= ROB_TYPE_REG;
-                                rob_state_out <= ROB_STATE_EXECUTE;
-                                calc_op_L1_out <= {1'b0, sub_op};
-                                calc_op_L2_out <= (sub_op == 3'b101 ? calc_op_L2 : 1'b0);
-                                imm_out <= (sub_op == 3'b101 || sub_op == 3'b001 ? imm_5_shamt : imm_12_I);  // I-type doesn't have SUBI
-                            end
-                            OP_REG: begin
-                                tmp_dec_ready  <= 4'b1011;
-                                is_stall_out   <= rob_full || rs_full;
-                                rob_type_out   <= ROB_TYPE_REG;
-                                rob_state_out  <= ROB_STATE_EXECUTE;
-                                calc_op_L1_out <= {1'b0, sub_op};
-                                calc_op_L2_out <= calc_op_L2;
-                            end
-                        endcase
-                    end
-                endcase
-            end else begin
-                tmp_dec_ready <= 4'b0000;
-                is_stall_out  <= 0;
+                                        end
+                                        default: begin  // OP_IMM
+                                            tmp_dec_ready <= 4'b1011;
+                                            is_stall_out <= rob_full || rs_full;
+                                            rob_type_out <= ROB_TYPE_REG;
+                                            rob_state_out <= ROB_STATE_EXECUTE;
+                                            dest_out <= rs1_C_3;
+                                            calc_op_L1_out <= sub_op_C_L3 == 2'b10 ? CALC_AND : CALC_SRL_SRA;
+                                            calc_op_L2_out <= sub_op_C_L3 == 2'b01 ? 1'b1 : 1'b0;  // C.SRAI 1
+                                            rs1_out <= rs1_C_3;
+                                            rs2_out <= 0;
+                                            is_imm_out <= 1;
+                                            imm_out <= sub_op_C_L3 == 2'b10 ? imm_C_I : imm_C_UI;  // C.ANDI signed
+                                        end  // C.SRLI, C.SRAI, C.ANDI
+                                    endcase
+                                end
+                                3'b101: begin  // OP_JAL
+                                    tmp_dec_ready <= 4'b1001;
+                                    is_stall_out <= rob_full;
+                                    rob_type_out <= ROB_TYPE_REG;
+                                    rob_state_out <= ROB_STATE_WRITE_RESULT;
+                                    dest_out <= 0;
+                                    result_value_out <= if_instr_addr + 4;  // TODO: +4?
+                                    is_imm_out <= 0;
+                                end  // C.J
+                                3'b110: begin  // OP_BRANCH
+                                    tmp_dec_ready <= 4'b0011;
+                                    is_stall_out <= rob_full || rs_full;
+                                    rob_type_out <= ROB_TYPE_BRANCH;
+                                    rob_state_out <= ROB_STATE_EXECUTE;
+                                    calc_op_L1_out <= CALC_SEQ;
+                                    calc_op_L2_out <= 0;
+                                    rs1_out <= rs1_C_3;
+                                    rs2_out <= 0;
+                                    is_imm_out <= 0;
+                                end  // C.BEQZ
+                                3'b111: begin  // OP_BRANCH
+                                    tmp_dec_ready <= 4'b0011;
+                                    is_stall_out <= rob_full || rs_full;
+                                    rob_type_out <= ROB_TYPE_BRANCH;
+                                    rob_state_out <= ROB_STATE_EXECUTE;
+                                    calc_op_L1_out <= CALC_SNE;
+                                    calc_op_L2_out <= 0;
+                                    rs1_out <= rs1_C_3;
+                                    rs2_out <= 0;
+                                    is_imm_out <= 0;
+                                end  // C.BNEZ
+                            endcase
+                        end
+                        2'b10: begin
+                            case (sub_op_C_L1)
+                                3'b000: begin  // OP_IMM
+                                    tmp_dec_ready <= 4'b1011;
+                                    is_stall_out <= rob_full || rs_full;
+                                    rob_type_out <= ROB_TYPE_REG;
+                                    rob_state_out <= ROB_STATE_EXECUTE;
+                                    dest_out <= rs1_C_5;
+                                    calc_op_L1_out <= CALC_SLL;
+                                    calc_op_L2_out <= 1'b0;
+                                    rs1_out <= rs1_C_5;
+                                    rs2_out <= 0;
+                                    is_imm_out <= 1;
+                                    imm_out <= imm_C_UI;
+                                end  // C.SLLI
+                                3'b010: begin  // OP_LOAD
+                                    tmp_dec_ready <= 4'b1101;
+                                    is_stall_out <= rob_full || lb_full;
+                                    rob_type_out <= ROB_TYPE_REG;
+                                    rob_state_out <= ROB_STATE_EXECUTE;
+                                    dest_out <= rs1_C_5;
+                                    mem_type_out <= MEM_LW;
+                                    rs1_out <= 2;
+                                    rs2_out <= 0;
+                                    is_imm_out <= 0;
+                                    imm_out <= imm_C_LWSP;
+                                end  // C.LWSP
+                                3'b100: begin
+                                    case (sub_op_C_L2)
+                                        1'b0: begin
+                                            if (rs2_C_5 == 0) begin  // OP_JALR
+                                                tmp_dec_ready <= 4'b1011;
+                                                is_stall_out <= rob_full || rs_full;
+                                                rob_type_out <= ROB_TYPE_JALR;
+                                                rob_state_out <= ROB_STATE_EXECUTE;
+                                                dest_out <= 0;
+                                                calc_op_L1_out <= CALC_ADD_SUB;
+                                                calc_op_L2_out <= 0;  // ADD
+                                                rs1_out <= rs1_C_5;
+                                                rs2_out <= 0;
+                                                is_imm_out <= 1;
+                                                imm_out <= 0;
+                                            end  // C.JR
+                                        else begin  // OP_IMM
+                                                tmp_dec_ready <= 4'b1011;
+                                                is_stall_out <= rob_full || rs_full;
+                                                rob_type_out <= ROB_TYPE_REG;
+                                                rob_state_out <= ROB_STATE_EXECUTE;
+                                                dest_out <= rs1_C_5;
+                                                calc_op_L1_out <= CALC_ADD_SUB;
+                                                calc_op_L2_out <= 1'b0;
+                                                rs1_out <= rs2_C_5;
+                                                rs2_out <= 0;
+                                                is_imm_out <= 1;
+                                                imm_out <= 0;
+                                            end  // C.MV
+                                        end
+                                        1'b1: begin
+                                            if (rs2_C_5 == 0) begin  // OP_JALR
+                                                tmp_dec_ready <= 4'b1011;
+                                                is_stall_out <= rob_full || rs_full;
+                                                rob_type_out <= ROB_TYPE_JALR;
+                                                rob_state_out <= ROB_STATE_EXECUTE;
+                                                dest_out <= 1;
+                                                calc_op_L1_out <= CALC_ADD_SUB;
+                                                calc_op_L2_out <= 0;  // ADD
+                                                rs1_out <= rs1_C_5;
+                                                rs2_out <= 0;
+                                                is_imm_out <= 1;
+                                                imm_out <= 0;
+                                            end  // C.JALR
+                                        else begin  // OP_REG
+                                                tmp_dec_ready <= 4'b1011;
+                                                is_stall_out <= rob_full || rs_full;
+                                                rob_type_out <= ROB_TYPE_REG;
+                                                rob_state_out <= ROB_STATE_EXECUTE;
+                                                dest_out <= rs1_C_5;
+                                                calc_op_L1_out <= CALC_ADD_SUB;
+                                                calc_op_L2_out <= 0;
+                                                rs1_out <= rs1_C_5;
+                                                rs2_out <= rs2_C_5;
+                                                is_imm_out <= 0;
+                                            end  // C.ADD
+                                        end
+                                    endcase
+                                end
+                                3'b110: begin  // OP_STORE
+                                    tmp_dec_ready <= 4'b0101;
+                                    is_stall_out <= rob_full || sb_full;
+                                    rob_type_out <= sub_op;
+                                    rob_state_out <= ROB_STATE_EXECUTE;
+                                    mem_type_out <= MEM_SW;
+                                    rs1_out <= 2;
+                                    rs2_out <= rs2_C_5;
+                                    is_imm_out <= 0;
+                                    imm_out <= imm_C_SWSP;
+                                end  // C.SWSP
+                            endcase
+                        end
+                        2'b11: begin
+                            dest_out <= rd;
+                            rs1_out <= rs1;
+                            rs2_out <= rs2;
+                            is_imm_out <= op == OP_JALR || op == OP_IMM;
+                            case (op)
+                                OP_LUI, OP_AUIPC, OP_JAL: begin
+                                    tmp_dec_ready <= 4'b1001;
+                                    is_stall_out  <= rob_full;
+                                    rob_type_out  <= ROB_TYPE_REG;
+                                    rob_state_out <= ROB_STATE_WRITE_RESULT;
+                                    case (op)
+                                        OP_LUI: result_value_out <= imm_32_U;
+                                        OP_AUIPC: result_value_out <= imm_32_U + if_instr_addr;
+                                        OP_JAL:
+                                        result_value_out <= if_instr_addr + 4;  // TODO: +4?
+                                    endcase
+                                end
+                                OP_JALR: begin
+                                    tmp_dec_ready <= 4'b1011;
+                                    is_stall_out <= rob_full || rs_full;
+                                    rob_type_out <= ROB_TYPE_JALR;
+                                    rob_state_out <= ROB_STATE_EXECUTE;
+                                    calc_op_L1_out <= CALC_ADD_SUB;
+                                    calc_op_L2_out <= 0;  // ADD
+                                    imm_out <= imm_12_I;
+                                end
+                                OP_BRANCH: begin
+                                    tmp_dec_ready <= 4'b0011;
+                                    is_stall_out <= rob_full || rs_full;
+                                    rob_type_out <= ROB_TYPE_BRANCH;
+                                    rob_state_out <= ROB_STATE_EXECUTE;
+                                    calc_op_L1_out <= sub_op == 3'b100 ? CALC_SLT : sub_op == 3'b110 ? CALC_SLTU : {1'b1, sub_op};
+                                    calc_op_L2_out <= 0;
+                                end  // SLT and SLTU already exist
+                                OP_LOAD: begin
+                                    tmp_dec_ready <= 4'b1101;
+                                    is_stall_out <= rob_full || lb_full;
+                                    rob_type_out <= ROB_TYPE_REG;
+                                    rob_state_out <= ROB_STATE_EXECUTE;
+                                    mem_type_out <= {1'b0, sub_op};
+                                    imm_out <= imm_12_I;
+                                end
+                                OP_STORE: begin
+                                    tmp_dec_ready <= 4'b0101;
+                                    is_stall_out <= rob_full || sb_full;
+                                    rob_type_out <= sub_op;
+                                    rob_state_out <= ROB_STATE_EXECUTE;
+                                    mem_type_out <= {1'b1, sub_op};
+                                    imm_out <= imm_12_S;
+                                end
+                                OP_IMM: begin
+                                    tmp_dec_ready <= 4'b1011;
+                                    is_stall_out <= rob_full || rs_full;
+                                    rob_type_out <= ROB_TYPE_REG;
+                                    rob_state_out <= ROB_STATE_EXECUTE;
+                                    calc_op_L1_out <= {1'b0, sub_op};
+                                    calc_op_L2_out <= (sub_op == 3'b101 ? calc_op_L2 : 1'b0);
+                                    imm_out <= (sub_op == 3'b101 || sub_op == 3'b001 ? imm_5_shamt : imm_12_I);  // I-type doesn't have SUBI
+                                end
+                                OP_REG: begin
+                                    tmp_dec_ready  <= 4'b1011;
+                                    is_stall_out   <= rob_full || rs_full;
+                                    rob_type_out   <= ROB_TYPE_REG;
+                                    rob_state_out  <= ROB_STATE_EXECUTE;
+                                    calc_op_L1_out <= {1'b0, sub_op};
+                                    calc_op_L2_out <= calc_op_L2;
+                                end
+                            endcase
+                        end
+                    endcase
+                end
             end
         end
     end

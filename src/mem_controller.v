@@ -122,11 +122,15 @@ module mem_controller (
                 dout_ready <= 0;
                 iout_ready <= 0;
                 working <= 0;
+                byte_a <= 0;
+                byte_din <= 0;
                 byte_wr <= 0;
             end else begin
                 if (!cur_working) begin
                     dout_ready <= 0;
                     iout_ready <= 0;
+                    byte_a <= 0;
+                    byte_din <= 0;
                     byte_wr <= 0;
                     // $fdisplay(handle1, "mem_controller: not working");
                 end else begin
@@ -166,6 +170,8 @@ module mem_controller (
                                 working <= 0;
                                 dout_ready <= !cur_wr;
                                 dependency_out <= tmp_lsb_dependency;
+                                byte_a <= 0;
+                                byte_din <= 0;
                                 byte_wr <= 0;
                             end
                         end
@@ -182,6 +188,8 @@ module mem_controller (
                                 end
                                 work_cycle <= 3'b000;
                                 working <= 0;
+                                byte_a <= 0;
+                                byte_din <= 0;
                                 byte_wr <= 0;
                             end else begin
                                 work_cycle <= 3'b011;
@@ -203,6 +211,8 @@ module mem_controller (
                             tmp_result[23:16] <= byte_dout;
                             working <= 0;
                             work_cycle <= 3'b000;
+                            byte_a <= 0;
+                            byte_din <= 0;
                             byte_wr <= 0;
                             if (tmp_is_instr) begin
                                 iout_ready <= 1;

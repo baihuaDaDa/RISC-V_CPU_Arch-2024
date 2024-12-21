@@ -184,19 +184,43 @@ module lsb (
                             if (!lb_busy[i]) begin
                                 lb_busy[i] <= 1;
                                 lb_load_type[i] <= dec_mem_type;
-                                lb_value1[i] <= value1;
+                                if (alu_valid && dependency1 == alu_dependency) begin
+                                    lb_value1[i] <= alu_value;
+                                    lb_dependency1[i] <= -1;
+                                end else if (mem_valid && dependency1 == mem_dependency) begin
+                                    lb_value1[i] <= mem_value;
+                                    lb_dependency1[i] <= -1;
+                                end else begin
+                                    lb_value1[i] <= value1;
+                                    lb_dependency1[i] <= dependency1;
+                                end
                                 lb_value2[i] <= dec_imm;
-                                lb_dependency1[i] <= dependency1;
                                 lb_rob_id[i] <= rob_new_rob_id;
                                 lb_age[i] <= age_cnt;
                                 break_flag = 1;
                             end
                         end
                     end else begin
-                        sb_dependency1[sb_rear_next] <= dependency1;
-                        sb_dependency2[sb_rear_next] <= dependency2;
-                        sb_value1[sb_rear_next] <= value1;
-                        sb_value2[sb_rear_next] <= value2;
+                        if (alu_valid && dependency1 == alu_dependency) begin
+                            sb_value1[sb_rear_next] <= alu_value;
+                            sb_dependency1[sb_rear_next] <= -1;
+                        end else if (mem_valid && dependency1 == mem_dependency) begin
+                            sb_value1[sb_rear_next] <= mem_value;
+                            sb_dependency1[sb_rear_next] <= -1;
+                        end else begin
+                            sb_value1[sb_rear_next] <= value1;
+                            sb_dependency1[sb_rear_next] <= dependency1;
+                        end
+                        if (alu_valid && dependency2 == alu_dependency) begin
+                            sb_value2[sb_rear_next] <= alu_value;
+                            sb_dependency2[sb_rear_next] <= -1;
+                        end else if (mem_valid && dependency2 == mem_dependency) begin
+                            sb_value2[sb_rear_next] <= mem_value;
+                            sb_dependency2[sb_rear_next] <= -1;
+                        end else begin
+                            sb_value2[sb_rear_next] <= value2;
+                            sb_dependency2[sb_rear_next] <= dependency2;
+                        end
                         sb_imm[sb_rear_next] <= dec_imm;
                         sb_rob_id[sb_rear_next] <= rob_new_rob_id;
                         sb_age[sb_rear_next] <= age_cnt;
@@ -210,14 +234,14 @@ module lsb (
                             lb_dependency1[i] <= -1;
                         end
                     end
-                    for (i = sb_head + 1; i <= sb_rear; i = i + 1) begin
-                        if (sb_dependency1[i] == alu_dependency) begin
-                            sb_value1[i] <= alu_value;
-                            sb_dependency1[i] <= -1;
+                    for (i = sb_head; i != sb_rear; i = (i + 1) & SB_SIZE) begin
+                        if (sb_dependency1[(i + 1) & SB_SIZE] == alu_dependency) begin
+                            sb_value1[(i + 1) & SB_SIZE] <= alu_value;
+                            sb_dependency1[(i + 1) & SB_SIZE] <= -1;
                         end
-                        if (sb_dependency2[i] == alu_dependency) begin
-                            sb_value2[i] <= alu_value;
-                            sb_dependency2[i] <= -1;
+                        if (sb_dependency2[(i + 1) & SB_SIZE] == alu_dependency) begin
+                            sb_value2[(i + 1) & SB_SIZE] <= alu_value;
+                            sb_dependency2[(i + 1) & SB_SIZE] <= -1;
                         end
                     end
                 end
@@ -228,14 +252,14 @@ module lsb (
                             lb_dependency1[i] <= -1;
                         end
                     end
-                    for (i = sb_head + 1; i <= sb_rear; i = i + 1) begin
-                        if (sb_dependency1[i] == mem_dependency) begin
-                            sb_value1[i] <= mem_value;
-                            sb_dependency1[i] <= -1;
+                    for (i = sb_head; i != sb_rear; i = (i + 1) & SB_SIZE) begin
+                        if (sb_dependency1[(i + 1) & SB_SIZE] == mem_dependency) begin
+                            sb_value1[(i + 1) & SB_SIZE] <= mem_value;
+                            sb_dependency1[(i + 1) & SB_SIZE] <= -1;
                         end
-                        if (sb_dependency2[i] == mem_dependency) begin
-                            sb_value2[i] <= mem_value;
-                            sb_dependency2[i] <= -1;
+                        if (sb_dependency2[(i + 1) & SB_SIZE] == mem_dependency) begin
+                            sb_value2[(i + 1) & SB_SIZE] <= mem_value;
+                            sb_dependency2[(i + 1) & SB_SIZE] <= -1;
                         end
                     end
                 end

@@ -92,18 +92,15 @@ module lsb (
 
     wire    [  SB_SIZE_WIDTH-1:0] sb_front;
     wire    [  SB_SIZE_WIDTH-1:0] sb_rear_next;
-    wire    [  SB_SIZE_WIDTH-1:0] sb_ptr;
     reg                           break_flag;
 
     integer                       i;
-    integer                       index;
 
     assign sb_front = (sb_head + 1) & SB_SIZE;
     assign sb_rear_next = (sb_rear + 1) & SB_SIZE;
-    assign sb_ptr = (index + sb_head + 1) & SB_SIZE;
 
-    assign lb_full_out = (lb_size + (dec_valid[2] && dec_mem_type <= 3'b100) == LB_SIZE);
-    assign sb_full_out = (sb_size + (dec_valid[2] && dec_mem_type > 3'b100) - rob_pop_sb == SB_SIZE);
+    assign lb_full_out = (lb_size == LB_SIZE);
+    assign sb_full_out = (sb_size == SB_SIZE);
 
     wire [`ROB_SIZE_WIDTH:0] dependency1;
     wire [`ROB_SIZE_WIDTH:0] dependency2;
@@ -213,14 +210,14 @@ module lsb (
                             lb_dependency1[i] <= -1;
                         end
                     end
-                    for (index = 0; index < sb_size; index = index + 1) begin
-                        if (sb_dependency1[sb_ptr] == alu_dependency) begin
-                            sb_value1[sb_ptr] <= alu_value;
-                            sb_dependency1[sb_ptr] <= -1;
+                    for (i = sb_head + 1; i <= sb_rear; i = i + 1) begin
+                        if (sb_dependency1[i] == alu_dependency) begin
+                            sb_value1[i] <= alu_value;
+                            sb_dependency1[i] <= -1;
                         end
-                        if (sb_dependency2[sb_ptr] == alu_dependency) begin
-                            sb_value2[sb_ptr] <= alu_value;
-                            sb_dependency2[sb_ptr] <= -1;
+                        if (sb_dependency2[i] == alu_dependency) begin
+                            sb_value2[i] <= alu_value;
+                            sb_dependency2[i] <= -1;
                         end
                     end
                 end
@@ -231,14 +228,14 @@ module lsb (
                             lb_dependency1[i] <= -1;
                         end
                     end
-                    for (index = 0; index < sb_size; index = index + 1) begin
-                        if (sb_dependency1[sb_ptr] == mem_dependency) begin
-                            sb_value1[sb_ptr] <= mem_value;
-                            sb_dependency1[sb_ptr] <= -1;
+                    for (i = sb_head + 1; i <= sb_rear; i = i + 1) begin
+                        if (sb_dependency1[i] == mem_dependency) begin
+                            sb_value1[i] <= mem_value;
+                            sb_dependency1[i] <= -1;
                         end
-                        if (sb_dependency2[sb_ptr] == mem_dependency) begin
-                            sb_value2[sb_ptr] <= mem_value;
-                            sb_dependency2[sb_ptr] <= -1;
+                        if (sb_dependency2[i] == mem_dependency) begin
+                            sb_value2[i] <= mem_value;
+                            sb_dependency2[i] <= -1;
                         end
                     end
                 end

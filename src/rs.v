@@ -59,7 +59,7 @@ module rs (
     reg                            station_busy                [RS_SIZE-1:0];
     reg [         RS_SIZE_WIDTH:0] station_size;  // 多一位
 
-    assign station_full_out = (station_size + dec_valid[1]) == RS_SIZE;
+    assign station_full_out = (station_size == RS_SIZE);
 
     wire [`ROB_SIZE_WIDTH:0] dependency1;
     wire [`ROB_SIZE_WIDTH:0] dependency2;

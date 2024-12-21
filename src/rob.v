@@ -7,6 +7,7 @@ module rob (
     input rdy_in,
 
     input [                    3:0] dec_valid,
+    input                           dec_is_C,
     input [ ROB_TYPE_NUM_WIDTH-1:0] dec_rob_type,
     input [     `REG_NUM_WIDTH-1:0] dec_dest,
     input [                   31:0] dec_value,
@@ -80,6 +81,7 @@ module rob (
 
     // LoopQueue<RoBEntry, kBufferCapBin> buffer;
     reg [ROB_SIZE_WIDTH-1:0] buffer_head, buffer_rear, buffer_size;
+    reg                               buffer_is_C      [ROB_SIZE:0];
     reg     [ ROB_TYPE_NUM_WIDTH-1:0] buffer_rob_type  [ROB_SIZE:0];  // ROB_SIZE = 31
     reg     [     `REG_NUM_WIDTH-1:0] buffer_dest_reg  [ROB_SIZE:0];
     reg     [                   31:0] buffer_dest_mem  [ROB_SIZE:0];  // for S-type
@@ -105,7 +107,7 @@ module rob (
     assign is_found_2_out = (alu_valid && alu_dependency == rf_dependency2) ||
                         (mem_valid && mem_dependency == rf_dependency2) ||
                         (buffer_rob_state[rf_dependency2] == ROB_STATE_WRITE_RESULT);
-    assign buffer_full_out = (buffer_size + dec_valid[0] == ROB_SIZE);
+    assign buffer_full_out = (buffer_size == ROB_SIZE);
     assign rear_next_out = (buffer_rear + 1) & ROB_SIZE;
 
     // assign value1_out = 0;
@@ -114,6 +116,7 @@ module rob (
     // assign is_found_2_out = 0;
 
     /* debug */
+    wire top_is_C = buffer_is_C[front];
     wire [ROB_TYPE_NUM_WIDTH-1:0] top_rob_type = buffer_rob_type[front];
     wire [`REG_NUM_WIDTH-1:0] top_dest_reg = buffer_dest_reg[front];
     wire [31:0] top_dest_mem = buffer_dest_mem[front];
@@ -144,6 +147,7 @@ module rob (
             buffer_rear <= 0;
             buffer_size <= 0;
             for (i = 0; i <= ROB_SIZE; i = i + 1) begin
+                buffer_is_C[i] <= 0;
                 buffer_rob_type[i] <= 0;
                 buffer_dest_reg[i] <= 0;
                 buffer_dest_mem[i] <= 0;
@@ -168,6 +172,7 @@ module rob (
             end else begin
                 if (dec_valid[0]) begin
                     buffer_rear <= rear_next_out;
+                    buffer_is_C[rear_next_out] <= dec_is_C;
                     buffer_rob_type[rear_next_out] <= dec_rob_type;
                     buffer_dest_reg[rear_next_out] <= dec_dest;
                     buffer_value[rear_next_out] <= dec_value;
@@ -203,7 +208,7 @@ module rob (
                         end
                         ROB_TYPE_JALR: begin
                             rd_out <= buffer_dest_reg[front];
-                            value_out <= buffer_instr_addr[front] + 4;
+                            value_out <= buffer_instr_addr[front] + (buffer_is_C[front] ? 2 : 4);
                             dependency_out <= front;
                             rob2rf_ready <= 1;
                             rob2mem_ready <= 0;

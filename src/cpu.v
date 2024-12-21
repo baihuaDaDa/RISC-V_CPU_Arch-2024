@@ -58,6 +58,7 @@ module cpu (
     // dec
     wire                             dec_is_stall;
     wire [                      3:0] dec_ready;
+    wire                             dec_is_C;
     wire [  `ROB_TYPE_NUM_WIDTH-1:0] dec_rob_type;
     wire [       `REG_NUM_WIDTH-1:0] dec_dest;  // for rob, rf
     wire [       `REG_NUM_WIDTH-1:0] dec_rs1;
@@ -189,6 +190,7 @@ module cpu (
         .need_flush_in   (rob_need_flush),
         .is_stall_out    (dec_is_stall),
         .dec_ready       (dec_ready),
+        .is_C_out        (dec_is_C),
         .rob_type_out    (dec_rob_type),
         .dest_out        (dec_dest),
         .rs1_out         (dec_rs1),
@@ -215,6 +217,7 @@ module cpu (
         .rst_in         (rst_in),
         .rdy_in         (rdy_in),
         .dec_valid      (dec_ready),
+        .dec_is_C       (dec_is_C),
         .dec_rob_type   (dec_rob_type),
         .dec_dest       (dec_dest),
         .dec_value      (dec_result_value),
@@ -392,26 +395,26 @@ module cpu (
     );
 
     rf rf0 (
-        .clk_in         (clk_in),
-        .rst_in         (rst_in),
-        .rdy_in         (rdy_in),
-        .need_flush_in  (rob_need_flush),
-        .rob_valid      (rob2rf_ready),
-        .rob_rd         (rob_rd),
-        .rob_value      (rob_value),
-        .rob_dependency (rob_dependency),
-        .dec_valid      (dec_ready),
-        .dec_rs1        (dec_rs1),
-        .dec_rs2        (dec_rs2),
-        .dec_rd         (dec_dest),
+        .clk_in            (clk_in),
+        .rst_in            (rst_in),
+        .rdy_in            (rdy_in),
+        .need_flush_in     (rob_need_flush),
+        .rob_valid         (rob2rf_ready),
+        .rob_rd            (rob_rd),
+        .rob_value         (rob_value),
+        .rob_dependency    (rob_dependency),
+        .dec_valid         (dec_ready),
+        .dec_rs1           (dec_rs1),
+        .dec_rs2           (dec_rs2),
+        .dec_rd            (dec_dest),
         // combinatorial logic
-        .rob_new_dependency ({1'b0, rob_rear_next}),
-        .if_rs_jalr     (if2rf_rs_jalr),
-        .value1_out     (rf_value1),
-        .value2_out     (rf_value2),
-        .dependency1_out(rf_dependency1),
-        .dependency2_out(rf_dependency2),
-        .value_jalr_out (rf_value_jalr)
+        .rob_new_dependency({1'b0, rob_rear_next}),
+        .if_rs_jalr        (if2rf_rs_jalr),
+        .value1_out        (rf_value1),
+        .value2_out        (rf_value2),
+        .dependency1_out   (rf_dependency1),
+        .dependency2_out   (rf_dependency2),
+        .value_jalr_out    (rf_value_jalr)
     );
 
 endmodule

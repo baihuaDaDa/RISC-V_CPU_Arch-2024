@@ -102,15 +102,15 @@ module dec (
     wire sub_op_C_L2 = if_instr[12];
     wire [1:0] sub_op_C_L3 = if_instr[11:10];
     wire [1:0] sub_op_C_L4 = if_instr[6:5];
-    wire [`REG_NUM_WIDTH-1:0] rs1_C_3 = if_instr[9:7];  // rs1/rd 3-bit
-    wire [`REG_NUM_WIDTH-1:0] rs2_C_3 = if_instr[4:2];  // rs2/rd 3-bit
+    wire [`REG_NUM_WIDTH-1:0] rs1_C_3 = {2'b01, if_instr[9:7]};  // rs1/rd 3-bit
+    wire [`REG_NUM_WIDTH-1:0] rs2_C_3 = {2'b01, if_instr[4:2]};  // rs2/rd 3-bit
     wire [`REG_NUM_WIDTH-1:0] rs1_C_5 = if_instr[11:7];  // rs1/rd 5-bit
     wire [`REG_NUM_WIDTH-1:0] rs2_C_5 = if_instr[6:2];  // rs2/rd 5-bit
     wire [31:0] imm_C_LSW = {
-        if_instr[5], if_instr[12:10], if_instr[6], 2'b00
+        25'b0, if_instr[5], if_instr[12:10], if_instr[6], 2'b00
     };  // uimm[5:3], uimm[2|6], for C.LW, C.SW
     wire [31:0] imm_C_ADDI4SPN = {
-        if_instr[10:7], if_instr[12:11], if_instr[5], if_instr[6], 2'b00
+        22'b0, if_instr[10:7], if_instr[12:11], if_instr[5], if_instr[6], 2'b00
     };  // uimm[5:4|9:6|2|3], for C.ADDI4SPN
     wire [31:0] imm_C_I = {{27{if_instr[12]}}, if_instr[6:2]};  // for I-type imm
     wire [31:0] imm_C_UI = {if_instr[12], if_instr[6:2]};  // for unsigned I-type imm
@@ -219,7 +219,7 @@ module dec (
                                 end  // C.LW
                                 3'b110: begin  // OP_STORE
                                     tmp_dec_ready <= 4'b0101;
-                                    rob_type_out <= sub_op;
+                                    rob_type_out <= ROB_TYPE_STORE_WORD;
                                     rob_state_out <= ROB_STATE_EXECUTE;
                                     mem_type_out <= MEM_SW;
                                     rs1_out <= rs1_C_3;
@@ -249,7 +249,7 @@ module dec (
                                     rob_type_out <= ROB_TYPE_REG;
                                     rob_state_out <= ROB_STATE_WRITE_RESULT;
                                     dest_out <= 1;
-                                    result_value_out <= if_instr_addr + 4;  // TODO: +4?
+                                    result_value_out <= if_instr_addr + 2;
                                     is_imm_out <= 0;
                                 end  // C.JAL
                                 3'b011: begin
@@ -311,7 +311,7 @@ module dec (
                                     rob_type_out <= ROB_TYPE_REG;
                                     rob_state_out <= ROB_STATE_WRITE_RESULT;
                                     dest_out <= 0;
-                                    result_value_out <= if_instr_addr + 4;  // TODO: +4?
+                                    result_value_out <= if_instr_addr + 2;
                                     is_imm_out <= 0;
                                 end  // C.J
                                 3'b110: begin  // OP_BRANCH
@@ -419,7 +419,7 @@ module dec (
                                 end
                                 3'b110: begin  // OP_STORE
                                     tmp_dec_ready <= 4'b0101;
-                                    rob_type_out <= sub_op;
+                                    rob_type_out <= ROB_TYPE_STORE_WORD;
                                     rob_state_out <= ROB_STATE_EXECUTE;
                                     mem_type_out <= MEM_SW;
                                     rs1_out <= 2;

@@ -244,7 +244,7 @@ module rob (
                             rob2mem_ready <= 0;
                             rob2lsb_pop_sb <= 0;
                             if (buffer_value[front] != buffer_is_jump[front]) begin
-                                jump_addr_out <= (buffer_value[front] == 1) ? buffer_jump_addr[front] : buffer_instr_addr[front] + 4;
+                                jump_addr_out <= (buffer_value[front] == 1) ? buffer_jump_addr[front] : buffer_instr_addr[front] + (buffer_is_C[front] ? 2 : 4);
                                 need_flush_out <= 1;
                             end else begin
                                 need_flush_out <= 0;

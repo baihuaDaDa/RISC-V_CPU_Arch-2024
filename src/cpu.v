@@ -156,7 +156,7 @@ module cpu (
         .if2dec_is_jump   (if2dec_is_jump),
         .if2dec_jump_addr (if2dec_jump_addr),
         // combinatorial logic
-        .pred_is_jump     (0),
+        .pred_is_jump     (pred2if_result),
         .ic_hit           (ic2if_hit),
         .ic_miss_ready    (ic2if_miss_ready),
         .ic_instr         (ic2if_instr),
@@ -166,17 +166,17 @@ module cpu (
         .rf_jalr_out      (if2rf_rs_jalr)
     );
 
-    // predictor pred0 (
-    //     .clk_in        (clk_in),
-    //     .rst_in        (rst_in),
-    //     .rdy_in        (rdy_in),
-    //     .rob_valid     (rob2pred_ready),
-    //     .rob_instr_addr(rob_instr_addr),
-    //     .rob_is_jump   (rob_is_jump),
-    //     // combinatorial logic
-    //     .pc_in         (if_pc),
-    //     .pred2if_result(pred2if_result)
-    // );
+    predictor pred0 (
+        .clk_in        (clk_in),
+        .rst_in        (rst_in),
+        .rdy_in        (rdy_in),
+        .rob_valid     (rob2pred_ready),
+        .rob_instr_addr(rob_instr_addr),
+        .rob_is_jump   (rob_is_jump),
+        // combinatorial logic
+        .pc_in         (if_pc),
+        .pred2if_result(pred2if_result)
+    );
 
     dec dec0 (
         .clk_in          (clk_in),

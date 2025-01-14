@@ -1,9 +1,11 @@
-`include "src/const_param.v"
+`include "const_param.v"
 
 module lsb (
     input clk_in,
     input rst_in,
     input rdy_in,
+    input io_buffer_full_in, // 1 if uart buffer is full
+
 
     input [                   3:0] dec_valid,
     input [MEM_TYPE_NUM_WIDTH-1:0] dec_mem_type,
@@ -33,6 +35,7 @@ module lsb (
     output reg                       sb2rob_ready,
 
     // combinatorial logic
+    input [`ROB_SIZE_WIDTH-1:0] rob_front,
     input [`ROB_SIZE_WIDTH-1:0] rob_new_rob_id,
     input [               31:0] rf_value1,
     input [               31:0] rf_value2,
@@ -82,6 +85,7 @@ module lsb (
     reg [                   31:0] lb_age                    [LB_SIZE-1:0];
 
     reg [SB_SIZE_WIDTH-1:0] sb_head, sb_rear, sb_size;
+    reg                           sb_busy       [SB_SIZE:0];  // for traverse
     reg     [               31:0] sb_value1     [SB_SIZE:0];
     reg     [               31:0] sb_value2     [SB_SIZE:0];
     reg     [  `ROB_SIZE_WIDTH:0] sb_dependency1[SB_SIZE:0];
@@ -119,7 +123,7 @@ module lsb (
     //     ;
     // end
 
-    /* debug */
+    /* debug
     wire [               31:0] sb_top_value1 = sb_value1[sb_front];
     wire [               31:0] sb_top_value2 = sb_value2[sb_front];
     wire [  `ROB_SIZE_WIDTH:0] sb_top_dependency1 = sb_dependency1[sb_front];
@@ -127,6 +131,7 @@ module lsb (
     wire [               31:0] sb_top_imm = sb_imm[sb_front];
     wire [`ROB_SIZE_WIDTH-1:0] sb_top_rob_id = sb_rob_id[sb_front];
     wire [               31:0] sb_top_age = sb_age[sb_front];
+    */
 
     always @(posedge clk_in) begin
         if (rst_in !== 1'b0) begin
@@ -150,6 +155,7 @@ module lsb (
                 lb_age[i] <= 0;
             end
             for (i = 0; i <= SB_SIZE; i = i + 1) begin
+                sb_busy[i] <= 1'b0;
                 sb_value1[i] <= 0;
                 sb_value2[i] <= 0;
                 sb_dependency1[i] <= -1;
@@ -161,7 +167,6 @@ module lsb (
             sb_head <= 0;
             sb_rear <= 0;
             sb_size <= 0;
-            break_flag <= 0;
         end else if (!rdy_in) begin
             /* do nothing */
         end else begin
@@ -170,6 +175,9 @@ module lsb (
                     lb_busy[i] <= 1'b0;
                 end
                 lb_size <= 0;
+                for (i = 0; i <= SB_SIZE; i = i + 1) begin
+                    sb_busy[i] <= 1'b0;
+                end
                 sb_head <= 0;
                 sb_rear <= 0;
                 sb_size <= 0;
@@ -224,6 +232,7 @@ module lsb (
                         sb_imm[sb_rear_next] <= dec_imm;
                         sb_rob_id[sb_rear_next] <= rob_new_rob_id;
                         sb_age[sb_rear_next] <= age_cnt;
+                        sb_busy[sb_rear_next] <= 1'b1;
                         sb_rear <= sb_rear_next;
                     end
                 end
@@ -234,14 +243,16 @@ module lsb (
                             lb_dependency1[i] <= -1;
                         end
                     end
-                    for (i = sb_head; i != sb_rear; i = (i + 1) & SB_SIZE) begin
-                        if (sb_dependency1[(i + 1) & SB_SIZE] == alu_dependency) begin
-                            sb_value1[(i + 1) & SB_SIZE] <= alu_value;
-                            sb_dependency1[(i + 1) & SB_SIZE] <= -1;
-                        end
-                        if (sb_dependency2[(i + 1) & SB_SIZE] == alu_dependency) begin
-                            sb_value2[(i + 1) & SB_SIZE] <= alu_value;
-                            sb_dependency2[(i + 1) & SB_SIZE] <= -1;
+                    for (i = 0; i <= SB_SIZE; i = i + 1) begin
+                        if (sb_busy[i]) begin
+                            if (sb_dependency1[i] == alu_dependency) begin
+                                sb_value1[i] <= alu_value;
+                                sb_dependency1[i] <= -1;
+                            end
+                            if (sb_dependency2[i] == alu_dependency) begin
+                                sb_value2[i] <= alu_value;
+                                sb_dependency2[i] <= -1;
+                            end
                         end
                     end
                 end
@@ -252,18 +263,21 @@ module lsb (
                             lb_dependency1[i] <= -1;
                         end
                     end
-                    for (i = sb_head; i != sb_rear; i = (i + 1) & SB_SIZE) begin
-                        if (sb_dependency1[(i + 1) & SB_SIZE] == mem_dependency) begin
-                            sb_value1[(i + 1) & SB_SIZE] <= mem_value;
-                            sb_dependency1[(i + 1) & SB_SIZE] <= -1;
-                        end
-                        if (sb_dependency2[(i + 1) & SB_SIZE] == mem_dependency) begin
-                            sb_value2[(i + 1) & SB_SIZE] <= mem_value;
-                            sb_dependency2[(i + 1) & SB_SIZE] <= -1;
+                    for (i = 0; i <= SB_SIZE; i = i + 1) begin
+                        if (sb_busy[i]) begin
+                            if (sb_dependency1[i] == mem_dependency) begin
+                                sb_value1[i] <= mem_value;
+                                sb_dependency1[i] <= -1;
+                            end
+                            if (sb_dependency2[i] == mem_dependency) begin
+                                sb_value2[i] <= mem_value;
+                                sb_dependency2[i] <= -1;
+                            end
                         end
                     end
                 end
                 if (rob_pop_sb) begin
+                    sb_busy[sb_front] <= 1'b0;
                     sb_head <= (sb_head + 1) & SB_SIZE;
                 end
                 if (sb_size && !rob_pop_sb && (&sb_dependency1[sb_front]) && (&sb_dependency2[sb_front])) begin
@@ -275,15 +289,17 @@ module lsb (
                     sb2rob_ready <= 0;
                 end
                 break_flag = 0;
-                if (!mem_busy) begin
+                if (!mem_busy && !io_buffer_full_in) begin
                     for (i = 0; i < LB_SIZE && !break_flag; i = i + 1) begin
                         if (lb_busy[i] && (&lb_dependency1[i]) && (sb_size == 0 || (sb_size && lb_age[i] < sb_age[sb_front]))) begin
-                            lb2mem_load_type <= lb_load_type[i];
-                            lb2mem_addr <= lb_value1[i] + lb_value2[i];
-                            lb2mem_dependency <= {1'b0, lb_rob_id[i]};
-                            lb2mem_ready <= 1;
-                            lb_busy[i] <= 0;
-                            break_flag = 1;
+                            if (lb_rob_id[i] != rob_front || lb_value1[i] + lb_value2[i] != 32'h30000) begin
+                                lb2mem_load_type <= lb_load_type[i];
+                                lb2mem_addr <= lb_value1[i] + lb_value2[i];
+                                lb2mem_dependency <= {1'b0, lb_rob_id[i]};
+                                lb2mem_ready <= 1;
+                                lb_busy[i] <= 0;
+                                break_flag = 1;
+                            end
                         end
                     end
                     lb2mem_ready <= break_flag;

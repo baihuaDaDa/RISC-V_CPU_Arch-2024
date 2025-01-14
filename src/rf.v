@@ -1,4 +1,4 @@
-`include "src/const_param.v"
+`include "const_param.v"
 
 module rf (
     input clk_in,

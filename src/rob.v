@@ -1,10 +1,12 @@
-`include "src/const_param.v"
+`include "const_param.v"
 
 module rob (
 
     input clk_in,
     input rst_in,
     input rdy_in,
+    input io_buffer_full_in, // 1 if uart buffer is full
+
 
     input [                    3:0] dec_valid,
     input                           dec_is_C,
@@ -54,6 +56,7 @@ module rob (
     output wire                      is_found_2_out,
     output wire [              31:0] value2_out,
     output wire                      buffer_full_out,
+    output wire [ROB_SIZE_WIDTH-1:0] front_out,
     output wire [ROB_SIZE_WIDTH-1:0] rear_next_out
 );
 
@@ -93,10 +96,6 @@ module rob (
 
     integer                           i;
 
-    wire    [     ROB_SIZE_WIDTH-1:0] front;
-
-    assign front = (buffer_head + 1) & ROB_SIZE;
-
     assign value1_out = (alu_valid && alu_dependency == rf_dependency1) ? alu_value :
                     (mem_valid && mem_dependency == rf_dependency1) ? mem_value : buffer_value[rf_dependency1];
     assign is_found_1_out = (alu_valid && alu_dependency == rf_dependency1) ||
@@ -108,6 +107,7 @@ module rob (
                         (mem_valid && mem_dependency == rf_dependency2) ||
                         (buffer_rob_state[rf_dependency2] == ROB_STATE_WRITE_RESULT);
     assign buffer_full_out = (buffer_size == ROB_SIZE);
+    assign front_out = (buffer_head + 1) & ROB_SIZE;
     assign rear_next_out = (buffer_rear + 1) & ROB_SIZE;
 
     // assign value1_out = 0;
@@ -116,15 +116,16 @@ module rob (
     // assign is_found_2_out = 0;
 
     /* debug */
-    wire top_is_C = buffer_is_C[front];
-    wire [ROB_TYPE_NUM_WIDTH-1:0] top_rob_type = buffer_rob_type[front];
-    wire [`REG_NUM_WIDTH-1:0] top_dest_reg = buffer_dest_reg[front];
-    wire [31:0] top_dest_mem = buffer_dest_mem[front];
-    wire [31:0] top_value = buffer_value[front];
-    wire [31:0] top_instr_addr = buffer_instr_addr[front];
-    wire [31:0] top_jump_addr = buffer_jump_addr[front];
-    wire [ROB_STATE_NUM_WIDTH-1:0] top_rob_state = buffer_rob_state[front];
-    wire top_is_jump = buffer_is_jump[front];
+    wire top_is_C = buffer_is_C[front_out];
+    wire [ROB_TYPE_NUM_WIDTH-1:0] top_rob_type = buffer_rob_type[front_out];
+    wire [`REG_NUM_WIDTH-1:0] top_dest_reg = buffer_dest_reg[front_out];
+    wire [31:0] top_dest_mem = buffer_dest_mem[front_out];
+    wire [31:0] top_value = buffer_value[front_out];
+    wire [31:0] top_instr_addr = buffer_instr_addr[front_out];
+    wire [31:0] top_jump_addr = buffer_jump_addr[front_out];
+    wire [ROB_STATE_NUM_WIDTH-1:0] top_rob_state = buffer_rob_state[front_out];
+    wire top_is_jump = buffer_is_jump[front_out];
+    
 
     // TODO store相关指令可以让RoB提交的时候返还给LSB，由LSB直接写回给Memory，
     //      flush的时候不要清楚LSB中正在写回的store指令，这样可以有效避免RoB被访存指令阻塞。
@@ -194,12 +195,12 @@ module rob (
                     buffer_value[lsb_rob_id] <= lsb_value;
                     buffer_rob_state[lsb_rob_id] <= ROB_STATE_WRITE_RESULT;
                 end
-                if (buffer_size && buffer_rob_state[front] == ROB_STATE_WRITE_RESULT) begin
-                    case (buffer_rob_type[front])
+                if (buffer_size && buffer_rob_state[front_out] == ROB_STATE_WRITE_RESULT) begin
+                    case (buffer_rob_type[front_out])
                         ROB_TYPE_REG: begin
-                            rd_out <= buffer_dest_reg[front];
-                            value_out <= buffer_value[front];
-                            dependency_out <= front;
+                            rd_out <= buffer_dest_reg[front_out];
+                            value_out <= buffer_value[front_out];
+                            dependency_out <= front_out;
                             rob2rf_ready <= 1;
                             rob2mem_ready <= 0;
                             rob2lsb_pop_sb <= 0;
@@ -207,25 +208,25 @@ module rob (
                             need_flush_out <= 0;
                         end
                         ROB_TYPE_JALR: begin
-                            rd_out <= buffer_dest_reg[front];
-                            value_out <= buffer_instr_addr[front] + (buffer_is_C[front] ? 2 : 4);
-                            dependency_out <= front;
+                            rd_out <= buffer_dest_reg[front_out];
+                            value_out <= buffer_instr_addr[front_out] + (buffer_is_C[front_out] ? 2 : 4);
+                            dependency_out <= front_out;
                             rob2rf_ready <= 1;
                             rob2mem_ready <= 0;
                             rob2lsb_pop_sb <= 0;
                             rob2pred_ready <= 0;
-                            if (buffer_jump_addr[front] != buffer_value[front]) begin
-                                jump_addr_out  <= buffer_value[front];
+                            if (buffer_jump_addr[front_out] != buffer_value[front_out]) begin
+                                jump_addr_out  <= buffer_value[front_out];
                                 need_flush_out <= 1;
                             end else begin
                                 need_flush_out <= 0;
                             end
                         end
                         ROB_TYPE_STORE_BYTE, ROB_TYPE_STORE_HALF, ROB_TYPE_STORE_WORD: begin
-                            if (!mem_busy) begin
-                                store_type_out <= buffer_rob_type[front][1:0];
-                                data_addr_out <= buffer_dest_mem[front];
-                                value_out <= buffer_value[front];
+                            if (!mem_busy && !io_buffer_full_in) begin
+                                store_type_out <= buffer_rob_type[front_out][1:0];
+                                data_addr_out <= buffer_dest_mem[front_out];
+                                value_out <= buffer_value[front_out];
                                 rob2mem_ready <= 1;
                                 rob2lsb_pop_sb <= 1;
                             end else begin
@@ -237,22 +238,22 @@ module rob (
                             need_flush_out <= 0;
                         end
                         ROB_TYPE_BRANCH: begin
-                            instr_addr_out <= buffer_instr_addr[front];
-                            is_jump_out <= (buffer_value[front] == 1);
+                            instr_addr_out <= buffer_instr_addr[front_out];
+                            is_jump_out <= (buffer_value[front_out] == 1);
                             rob2pred_ready <= 1;
                             rob2rf_ready <= 0;
                             rob2mem_ready <= 0;
                             rob2lsb_pop_sb <= 0;
-                            if (buffer_value[front] != buffer_is_jump[front]) begin
-                                jump_addr_out <= (buffer_value[front] == 1) ? buffer_jump_addr[front] : buffer_instr_addr[front] + (buffer_is_C[front] ? 2 : 4);
+                            if (buffer_value[front_out] != buffer_is_jump[front_out]) begin
+                                jump_addr_out <= (buffer_value[front_out] == 1) ? buffer_jump_addr[front_out] : buffer_instr_addr[front_out] + (buffer_is_C[front_out] ? 2 : 4);
                                 need_flush_out <= 1;
                             end else begin
                                 need_flush_out <= 0;
                             end
                         end
                     endcase
-                    if (!mem_busy || (buffer_rob_type[front] != ROB_TYPE_STORE_BYTE && buffer_rob_type[front] != ROB_TYPE_STORE_HALF && buffer_rob_type[front] != ROB_TYPE_STORE_WORD)) begin
-                        buffer_head <= front;
+                    if ((!mem_busy && !io_buffer_full_in) || (buffer_rob_type[front_out] > ROB_TYPE_STORE_WORD)) begin
+                        buffer_head <= front_out;
                         buffer_size <= buffer_size + dec_valid[0] - 1;
                     end else begin
                         buffer_size <= buffer_size + dec_valid[0];

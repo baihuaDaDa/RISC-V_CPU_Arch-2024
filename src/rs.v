@@ -1,4 +1,4 @@
-`include "src/const_param.v"
+`include "const_param.v"
 
 module rs (
 
@@ -93,7 +93,6 @@ module rs (
             rs2alu_opr1 <= 0;
             rs2alu_opr2 <= 0;
             rs2alu_dependency <= -1;
-            break_flag <= 0;
         end else if (!rdy_in) begin
             /* do nothing */
         end else begin

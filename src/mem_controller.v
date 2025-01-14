@@ -1,4 +1,4 @@
-`include "src/const_param.v"
+`include "const_param.v"
 
 module mem_controller (
     input clk_in,
@@ -8,7 +8,6 @@ module mem_controller (
     input need_flush_in,
 
     // port with ram, combinatorial logic
-    input             io_buffer_full,  // 1 if uart buffer is full
     input      [ 7:0] byte_dout,
     output reg [ 7:0] byte_din,
     output reg [31:0] byte_a,

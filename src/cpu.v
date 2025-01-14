@@ -1,7 +1,7 @@
 // RISCV32 CPU top module
 // port modification allowed for debugging purposes
 
-`include "src/const_param.v"
+`include "const_param.v"
 // `include "src/instr_fetcher.v"
 // `include "src/predictor.v"
 // `include "src/dec.v"
@@ -94,6 +94,7 @@ module cpu (
     wire                             rob_is_found_2;
     wire [                     31:0] rob_value2;
     wire                             rob_full;
+    wire [      `ROB_SIZE_WIDTH-1:0] rob_front;  // for lsb to stall input load
     wire [      `ROB_SIZE_WIDTH-1:0] rob_rear_next;  // also for rf as dependency
 
     // lsb
@@ -213,57 +214,60 @@ module cpu (
     );
 
     rob rob0 (
-        .clk_in         (clk_in),
-        .rst_in         (rst_in),
-        .rdy_in         (rdy_in),
-        .dec_valid      (dec_ready),
-        .dec_is_C       (dec_is_C),
-        .dec_rob_type   (dec_rob_type),
-        .dec_dest       (dec_dest),
-        .dec_value      (dec_result_value),
-        .dec_instr_addr (dec_instr_addr),
-        .dec_jump_addr  (dec_jump_addr),
-        .dec_rob_state  (dec_rob_state),
-        .dec_is_jump    (dec_is_jump),
-        .alu_valid      (alu_ready),
-        .alu_dependency (alu_dependency),
-        .alu_value      (alu_value),
-        .mem_valid      (mem_dout_ready),
-        .mem_dependency (mem_dependency),
-        .mem_value      (mem_out),
-        .mem_busy       (mem_busy),
-        .lsb_valid      (sb2rob_ready),
-        .lsb_rob_id     (sb2rob_rob_id),
-        .lsb_dest       (sb2rob_dest),
-        .lsb_value      (sb2rob_value),
-        .rob2rf_ready   (rob2rf_ready),
-        .rob2mem_ready  (rob2mem_ready),
-        .rob2lsb_pop_sb (rob2lsb_pop_sb),
-        .rob2pred_ready (rob2pred_ready),
-        .need_flush_out (rob_need_flush),
-        .rd_out         (rob_rd),
-        .value_out      (rob_value),
-        .dependency_out (rob_dependency),
-        .store_type_out (rob_store_type),
-        .data_addr_out  (rob_data_addr),
-        .jump_addr_out  (rob_jump_addr),
-        .instr_addr_out (rob_instr_addr),
-        .is_jump_out    (rob_is_jump),
+        .clk_in           (clk_in),
+        .rst_in           (rst_in),
+        .rdy_in           (rdy_in),
+        .io_buffer_full_in(io_buffer_full),
+        .dec_valid        (dec_ready),
+        .dec_is_C         (dec_is_C),
+        .dec_rob_type     (dec_rob_type),
+        .dec_dest         (dec_dest),
+        .dec_value        (dec_result_value),
+        .dec_instr_addr   (dec_instr_addr),
+        .dec_jump_addr    (dec_jump_addr),
+        .dec_rob_state    (dec_rob_state),
+        .dec_is_jump      (dec_is_jump),
+        .alu_valid        (alu_ready),
+        .alu_dependency   (alu_dependency),
+        .alu_value        (alu_value),
+        .mem_valid        (mem_dout_ready),
+        .mem_dependency   (mem_dependency),
+        .mem_value        (mem_out),
+        .mem_busy         (mem_busy),
+        .lsb_valid        (sb2rob_ready),
+        .lsb_rob_id       (sb2rob_rob_id),
+        .lsb_dest         (sb2rob_dest),
+        .lsb_value        (sb2rob_value),
+        .rob2rf_ready     (rob2rf_ready),
+        .rob2mem_ready    (rob2mem_ready),
+        .rob2lsb_pop_sb   (rob2lsb_pop_sb),
+        .rob2pred_ready   (rob2pred_ready),
+        .need_flush_out   (rob_need_flush),
+        .rd_out           (rob_rd),
+        .value_out        (rob_value),
+        .dependency_out   (rob_dependency),
+        .store_type_out   (rob_store_type),
+        .data_addr_out    (rob_data_addr),
+        .jump_addr_out    (rob_jump_addr),
+        .instr_addr_out   (rob_instr_addr),
+        .is_jump_out      (rob_is_jump),
         // combinatorial logic
-        .rf_dependency1 (rf_dependency1),
-        .rf_dependency2 (rf_dependency2),
-        .is_found_1_out (rob_is_found_1),
-        .value1_out     (rob_value1),
-        .is_found_2_out (rob_is_found_2),
-        .value2_out     (rob_value2),
-        .buffer_full_out(rob_full),
-        .rear_next_out  (rob_rear_next)
+        .rf_dependency1   (rf_dependency1),
+        .rf_dependency2   (rf_dependency2),
+        .is_found_1_out   (rob_is_found_1),
+        .value1_out       (rob_value1),
+        .is_found_2_out   (rob_is_found_2),
+        .value2_out       (rob_value2),
+        .buffer_full_out  (rob_full),
+        .front_out        (rob_front),
+        .rear_next_out    (rob_rear_next)
     );
 
     lsb lsb0 (
         .clk_in           (clk_in),
         .rst_in           (rst_in),
         .rdy_in           (rdy_in),
+        .io_buffer_full_in(io_buffer_full),
         .dec_valid        (dec_ready),
         .dec_mem_type     (dec_mem_type),
         .dec_imm          (dec_imm),
@@ -285,6 +289,7 @@ module cpu (
         .sb2rob_dest      (sb2rob_dest),
         .sb2rob_value     (sb2rob_value),
         // combinatorial logic
+        .rob_front        (rob_front),
         .rob_new_rob_id   (rob_rear_next),
         .rf_value1        (rf_value1),
         .rf_value2        (rf_value2),
@@ -372,7 +377,6 @@ module cpu (
         .rst_in        (rst_in),
         .rdy_in        (rdy_in),
         .need_flush_in (rob_need_flush),
-        .io_buffer_full(io_buffer_full),
         .byte_dout     (mem_din),
         .byte_din      (mem_dout),
         .byte_a        (mem_a),

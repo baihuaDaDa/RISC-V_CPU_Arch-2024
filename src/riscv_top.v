@@ -12,7 +12,7 @@ module riscv_top #(
     input  wire btnC,
     output wire Tx,
     input  wire Rx,
-    output wire led
+    output wire [15:0] led
 );
 
   localparam SYS_CLK_FREQ = 100000000;
@@ -68,6 +68,7 @@ module riscv_top #(
   wire        cpu_rdy;
   wire        cpu_io_buffer_full;
   wire [31:0] cpu_dbgreg_dout;
+  wire [14:0] cpu_led_out;
 
   wire        hci_program_finish;
 
@@ -81,7 +82,8 @@ module riscv_top #(
       .mem_wr        (cpu_mem_wr),
       .io_buffer_full(cpu_io_buffer_full),
 
-      .dbgreg_dout(cpu_dbgreg_dout)
+      .dbgreg_dout(cpu_dbgreg_dout),
+      .led_out(cpu_led_out)
   );
 
   //
@@ -161,6 +163,6 @@ module riscv_top #(
   //
 
   // indicates debug break
-  assign led = hci_active;
+  assign led = {cpu_led_out, hci_active};
 
 endmodule

@@ -115,7 +115,7 @@ module rob (
     // assign value2_out = 0;
     // assign is_found_2_out = 0;
 
-    /* debug */
+    /* debug
     wire top_is_C = buffer_is_C[front_out];
     wire [ROB_TYPE_NUM_WIDTH-1:0] top_rob_type = buffer_rob_type[front_out];
     wire [`REG_NUM_WIDTH-1:0] top_dest_reg = buffer_dest_reg[front_out];
@@ -125,7 +125,7 @@ module rob (
     wire [31:0] top_jump_addr = buffer_jump_addr[front_out];
     wire [ROB_STATE_NUM_WIDTH-1:0] top_rob_state = buffer_rob_state[front_out];
     wire top_is_jump = buffer_is_jump[front_out];
-    
+    */
 
     // TODO store相关指令可以让RoB提交的时候返还给LSB，由LSB直接写回给Memory，
     //      flush的时候不要清楚LSB中正在写回的store指令，这样可以有效避免RoB被访存指令阻塞。

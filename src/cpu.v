@@ -25,7 +25,8 @@ module cpu (
 
     input wire io_buffer_full,  // 1 if uart buffer is full
 
-    output wire [31:0] dbgreg_dout  // cpu register output (debugging demo)
+    output wire [31:0] dbgreg_dout,  // cpu register output (debugging demo)
+    output wire [14:0] led_out
 );
 
     // implementation goes here
@@ -420,5 +421,8 @@ module cpu (
         .dependency2_out   (rf_dependency2),
         .value_jalr_out    (rf_value_jalr)
     );
+
+    assign led_out[11:0] = if_pc[11:0];
+    assign led_out[12] = clk_in;
 
 endmodule

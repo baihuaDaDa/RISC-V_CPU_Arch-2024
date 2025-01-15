@@ -1,5 +1,5 @@
-`define ROB_SIZE_WIDTH 4
-`define ROB_SIZE 15 // LoopQueue 需要预留一个空位置
+`define ROB_SIZE_WIDTH 3
+`define ROB_SIZE 7 // LoopQueue 需要预留一个空位置
 `define ROB_TYPE_NUM_WIDTH 3
 `define ROB_STATE_NUM_WIDTH 2
 
@@ -15,13 +15,13 @@
 `define LOAD_TYPE_NUM_WIDTH 3
 `define STORE_TYPE_NUM_WIDTH 2
 
-`define LB_SIZE 4
-`define LB_SIZE_WIDTH 2
-`define SB_SIZE 4 // LoopQueue 需要预留一个空位置
+`define LB_SIZE 2
+`define LB_SIZE_WIDTH 1
+`define SB_SIZE 3 // LoopQueue 需要预留一个空位置
 `define SB_SIZE_WIDTH 2
 
 `define PREDICTOR_SIZE 128
 `define PREDICTOR_SIZE_WIDTH 7
 
-`define CACHE_LINE_SIZE_WIDTH 7
-`define CACHE_LINE_SIZE 128
+`define CACHE_LINE_SIZE_WIDTH 4
+`define CACHE_LINE_SIZE 16

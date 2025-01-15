@@ -24,7 +24,7 @@ all: testcases build_sim
 endif
 
 testcases:
-	# docker run -it --rm -v "$(TESTCASE_DIR):/app" -w /app my-archlinux-image  make all
+	# docker run -it --rm -v "$(TESTCASE_DIR):/app" -w /app riscv-toolchain  make all
 	@make -C $(TESTCASE_DIR)
 
 _no_testcase_name_check:

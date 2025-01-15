@@ -292,7 +292,7 @@ module lsb (
                 if (!mem_busy && !io_buffer_full_in) begin
                     for (i = 0; i < LB_SIZE && !break_flag; i = i + 1) begin
                         if (lb_busy[i] && (&lb_dependency1[i]) && (sb_size == 0 || (sb_size && lb_age[i] < sb_age[sb_front]))) begin
-                            if (lb_rob_id[i] != rob_front || lb_value1[i] + lb_value2[i] != 32'h30000) begin
+                            if (lb_value1[i] + lb_value2[i] < 32'h30000 || lb_rob_id[i] == rob_front) begin
                                 lb2mem_load_type <= lb_load_type[i];
                                 lb2mem_addr <= lb_value1[i] + lb_value2[i];
                                 lb2mem_dependency <= {1'b0, lb_rob_id[i]};
